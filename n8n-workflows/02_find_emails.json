@@ -1,1 +1,473 @@
-{}
+{
+    "name": "02 — Find Emails (Hunter.io)",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "b1b2c3d4-0002-4000-8000-000000000001",
+            "name": "Start",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "read",
+                "documentId": {
+                    "__rl": true,
+                    "mode": "id",
+                    "value": "={{$env.GOOGLE_SHEET_ID}}"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "mode": "name",
+                    "value": "Leads"
+                },
+                "filters": {
+                    "conditions": [
+                        {
+                            "lookupColumn": "status",
+                            "lookupValue": "scraped"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000002",
+            "name": "Read Scraped Leads",
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.5,
+            "position": [
+                480,
+                300
+            ],
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "REPLACE_WITH_CREDENTIAL_ID",
+                    "name": "Google Sheets OAuth2"
+                }
+            },
+            "notes": "Reads all leads from Google Sheets where status = 'scraped'. These are leads from workflow 01 that haven't been processed yet."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract the domain from a full website URL\n// e.g. https://www.myrestaurant.lv/menu → myrestaurant.lv\n\nconst item = $input.item;\nconst url = item.json.website || '';\n\nlet domain = '';\ntry {\n  const parsed = new URL(url.startsWith('http') ? url : 'https://' + url);\n  domain = parsed.hostname.replace(/^www\\./, '');\n} catch (e) {\n  domain = url.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    domain: domain\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000003",
+            "name": "Extract Domain",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                720,
+                300
+            ],
+            "notes": "Extracts clean domain from website URL (strips protocol, www, path)"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://api.hunter.io/v2/domain-search?domain={{ $json.domain }}&api_key={{$env.HUNTER_API_KEY}}",
+                "options": {
+                    "timeout": 30000
+                }
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000004",
+            "name": "Hunter.io Domain Search",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                960,
+                300
+            ],
+            "onError": "continueErrorOutput",
+            "notes": "Calls Hunter.io Domain Search API to find email addresses for this domain. Returns up to 10 emails with confidence scores."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Process Hunter.io response and extract the best email\n// Prefers personal emails over generic ones, sorted by confidence\n// If no email found, pass through with empty email field for fallback\n\nconst item = $input.item;\nconst hunterData = item.json.data || item.json;\nconst emails = hunterData.emails || [];\n\n// Get the original lead data from the previous node\n// Hunter.io response replaces $json, so we need to reconstruct\nconst prevData = {\n  name: item.json._previousNode?.name || $('Extract Domain').item.json.name,\n  website: $('Extract Domain').item.json.website,\n  address: $('Extract Domain').item.json.address,\n  rating: $('Extract Domain').item.json.rating,\n  phone: $('Extract Domain').item.json.phone,\n  domain: $('Extract Domain').item.json.domain\n};\n\nif (emails.length === 0) {\n  // No emails found — will go to fallback\n  return [{\n    json: {\n      ...prevData,\n      email: '',\n      email_source: 'none',\n      email_confidence: 0\n    }\n  }];\n}\n\n// Sort: personal emails first, then by confidence score\nconst sorted = emails.sort((a, b) => {\n  if (a.type === 'personal' && b.type !== 'personal') return -1;\n  if (a.type !== 'personal' && b.type === 'personal') return 1;\n  return (b.confidence || 0) - (a.confidence || 0);\n});\n\nconst best = sorted[0];\n\nreturn [{\n  json: {\n    ...prevData,\n    email: best.value || '',\n    email_type: best.type || 'unknown',\n    email_confidence: best.confidence || 0,\n    email_source: 'hunter'\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000005",
+            "name": "Extract Best Email",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                300
+            ],
+            "notes": "Picks the best email from Hunter.io results. Prioritizes personal over generic, then by confidence score. If none found, passes empty email for fallback."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Handle Hunter.io API errors gracefully\n// Log the error and pass through with empty email for fallback\n\nconst prevData = {\n  name: $('Extract Domain').item.json.name,\n  website: $('Extract Domain').item.json.website,\n  address: $('Extract Domain').item.json.address,\n  rating: $('Extract Domain').item.json.rating,\n  phone: $('Extract Domain').item.json.phone,\n  domain: $('Extract Domain').item.json.domain\n};\n\nconsole.log(`Hunter.io API error for ${prevData.domain}:`, JSON.stringify($input.item.json).substring(0, 500));\n\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'hunter_error',\n    email_confidence: 0\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000006",
+            "name": "Handle Hunter Error",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                520
+            ],
+            "notes": "Handles Hunter.io API failures. Logs the raw error and passes the lead through with empty email so the fallback scraper can try."
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "condition-has-email",
+                            "leftValue": "={{ $json.email }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "isNotEmpty"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000007",
+            "name": "Email Found?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                1440,
+                400
+            ],
+            "notes": "Routes leads: if Hunter found an email → update sheet. If not → try fallback contact page scraper."
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "={{ $json.website.replace(/\\/$/, '') }}/contact",
+                "options": {
+                    "timeout": 15000,
+                    "redirect": {
+                        "redirect": {
+                            "followRedirects": true,
+                            "maxRedirects": 3
+                        }
+                    }
+                }
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000008",
+            "name": "Scrape Contact Page",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1680,
+                520
+            ],
+            "onError": "continueErrorOutput",
+            "notes": "Fallback: if Hunter.io found no email, try fetching the /contact page directly to scrape for email addresses."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Fallback: extract email from the /contact page HTML\n// Uses a simple regex to find email addresses in the page source\n\nconst item = $input.item;\nconst html = typeof item.json === 'string' ? item.json : (item.json.data || item.json.body || JSON.stringify(item.json));\n\nconst prevData = {\n  name: $('Email Found?').item.json.name,\n  website: $('Email Found?').item.json.website,\n  address: $('Email Found?').item.json.address,\n  rating: $('Email Found?').item.json.rating,\n  phone: $('Email Found?').item.json.phone,\n  domain: $('Email Found?').item.json.domain\n};\n\n// Regex to find email addresses in HTML\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g;\nconst matches = html.match(emailRegex) || [];\n\n// Filter out common false positives\nconst filtered = matches.filter(e => \n  !e.includes('example.com') && \n  !e.includes('sentry.io') && \n  !e.includes('wixpress') &&\n  !e.includes('schema.org') &&\n  !e.includes('.png') &&\n  !e.includes('.jpg')\n);\n\nif (filtered.length > 0) {\n  return [{\n    json: {\n      ...prevData,\n      email: filtered[0],\n      email_source: 'contact_page',\n      email_confidence: 50,\n      status: 'email_found'\n    }\n  }];\n}\n\n// No email found anywhere — mark as no_email\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000009",
+            "name": "Extract Email from HTML",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1920,
+                520
+            ],
+            "notes": "Regex-scrapes email addresses from the /contact page HTML. Filters out false positives (tracking pixels, schemas). If found → email_found. If not → no_email."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Contact page fetch failed — mark lead as no_email\n\nconst prevData = {\n  name: $('Email Found?').item.json.name,\n  website: $('Email Found?').item.json.website,\n  address: $('Email Found?').item.json.address,\n  rating: $('Email Found?').item.json.rating,\n  phone: $('Email Found?').item.json.phone,\n  domain: $('Email Found?').item.json.domain\n};\n\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000010",
+            "name": "Contact Page Failed",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1920,
+                720
+            ],
+            "notes": "Contact page returned an error (404, timeout, etc). Mark lead as no_email."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare lead data for sheet update — email was found via Hunter.io\nconst item = $input.item;\nreturn [{\n  json: {\n    ...item.json,\n    status: 'email_found'\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000011",
+            "name": "Mark as Email Found",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1680,
+                300
+            ],
+            "notes": "Sets status to email_found for leads where Hunter.io returned an email"
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "documentId": {
+                    "__rl": true,
+                    "mode": "id",
+                    "value": "={{$env.GOOGLE_SHEET_ID}}"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "mode": "name",
+                    "value": "Leads"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "email": "={{ $json.email }}",
+                        "status": "={{ $json.status }}",
+                        "email_source": "={{ $json.email_source }}",
+                        "email_confidence": "={{ $json.email_confidence }}"
+                    },
+                    "matchingColumns": [
+                        "name"
+                    ],
+                    "schema": [
+                        {
+                            "id": "name",
+                            "displayName": "name",
+                            "required": true,
+                            "defaultMatch": true
+                        },
+                        {
+                            "id": "email",
+                            "displayName": "email",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "status",
+                            "displayName": "status",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "email_source",
+                            "displayName": "email_source",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "email_confidence",
+                            "displayName": "email_confidence",
+                            "required": false,
+                            "defaultMatch": false
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000012",
+            "name": "Update Google Sheet",
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.5,
+            "position": [
+                2160,
+                400
+            ],
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "REPLACE_WITH_CREDENTIAL_ID",
+                    "name": "Google Sheets OAuth2"
+                }
+            },
+            "notes": "Updates each lead row in the Google Sheet with: email, status (email_found or no_email), email_source, email_confidence. Matches by restaurant name."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Summary: count how many emails were found vs not found\nconst items = $input.all();\nconst found = items.filter(i => i.json.status === 'email_found').length;\nconst notFound = items.filter(i => i.json.status === 'no_email').length;\n\nreturn [{\n  json: {\n    message: `✅ Email search complete. ${found} emails found, ${notFound} leads with no email.`,\n    emailsFound: found,\n    noEmail: notFound,\n    total: items.length\n  }\n}];\n"
+            },
+            "id": "b1b2c3d4-0002-4000-8000-000000000013",
+            "name": "Summary",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2400,
+                400
+            ],
+            "notes": "Final summary: how many emails found vs not found"
+        }
+    ],
+    "connections": {
+        "Start": {
+            "main": [
+                [
+                    {
+                        "node": "Read Scraped Leads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Read Scraped Leads": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Domain",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Domain": {
+            "main": [
+                [
+                    {
+                        "node": "Hunter.io Domain Search",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Hunter.io Domain Search": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Best Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Handle Hunter Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Best Email": {
+            "main": [
+                [
+                    {
+                        "node": "Email Found?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Handle Hunter Error": {
+            "main": [
+                [
+                    {
+                        "node": "Email Found?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Email Found?": {
+            "main": [
+                [
+                    {
+                        "node": "Mark as Email Found",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Scrape Contact Page",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark as Email Found": {
+            "main": [
+                [
+                    {
+                        "node": "Update Google Sheet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Scrape Contact Page": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Email from HTML",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Contact Page Failed",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Email from HTML": {
+            "main": [
+                [
+                    {
+                        "node": "Update Google Sheet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Contact Page Failed": {
+            "main": [
+                [
+                    {
+                        "node": "Update Google Sheet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Update Google Sheet": {
+            "main": [
+                [
+                    {
+                        "node": "Summary",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [
+        {
+            "name": "cold-email-pipeline",
+            "id": "tag-cold-email"
+        }
+    ],
+    "triggerCount": 0,
+    "updatedAt": "2026-02-28T01:23:00.000Z",
+    "versionId": "1"
+}
