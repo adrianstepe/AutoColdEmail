@@ -1,0 +1,15 @@
+{
+  "name": "autocoldemail",
+  "version": "1.0.0",
+  "description": "A fully automated cold email pipeline that scrapes restaurant leads from Google Maps in Riga, finds their contact emails, takes a screenshot of their website, uses Google Gemini AI to identify one specific website problem, generates a short personalized cold email, and sends it via Gmail — all orchestrated through modular n8n workflows with full logging to Google Sheets.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}

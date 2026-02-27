@@ -1,0 +1,12 @@
+You are analyzing a screenshot of a restaurant website.
+
+Identify exactly ONE specific, concrete problem visible in this screenshot that would hurt their business. Choose from: slow/heavy PDF menu, no mobile-friendly layout, no online booking button, no visible contact info, outdated design, no clear call to action, missing opening hours.
+
+Respond in ONE sentence only. Start with lowercase. Be casual and specific, as if pointing it out to the owner.
+
+Example outputs:
+- "your menu is a PDF file that's painful to open on a phone"
+- "there's no way to book a table directly from your homepage"
+- "your opening hours aren't visible anywhere on the main page"
+
+Do not explain. Do not add anything else. One sentence only.

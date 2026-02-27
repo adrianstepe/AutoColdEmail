@@ -1,0 +1,382 @@
+{
+    "name": "01 — Scrape Leads from Google Maps",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "a1b2c3d4-0001-4000-8000-000000000001",
+            "name": "Start",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/runs?token={{$env.APIFY_API_KEY}}&waitForFinish=120",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "{\n  \"searchStringsArray\": [\"restaurants in Riga Latvia\"],\n  \"maxCrawledPlacesPerSearch\": 100,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
+                "options": {
+                    "timeout": 180000
+                }
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000002",
+            "name": "Start Apify Scraper",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                480,
+                300
+            ],
+            "onError": "continueErrorOutput",
+            "notes": "Starts the Apify Google Maps Scraper actor. Waits up to 120s for results. Uses APIFY_API_KEY from environment."
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "condition-check-status",
+                            "leftValue": "={{ $json.statusCode || $json.status }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "exists",
+                                "singleValue": true
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000020",
+            "name": "Check Apify Error",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                480,
+                520
+            ],
+            "notes": "Routes Apify errors to the alert node"
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://api.apify.com/v2/acts/compass~crawler-google-places/runs/last/dataset/items?token={{$env.APIFY_API_KEY}}",
+                "options": {
+                    "timeout": 60000
+                }
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000003",
+            "name": "Fetch Scraper Results",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                720,
+                300
+            ],
+            "notes": "Fetches the dataset items from the last Apify run"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract and clean lead data from Apify Google Maps results\n// Filter out leads with no website URL — per GEMINI.md rules\n\nconst items = $input.all();\nconst leads = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Skip if no website URL\n  if (!data.website && !data.url) {\n    continue;\n  }\n\n  leads.push({\n    name: data.title || data.name || 'Unknown',\n    website: data.website || data.url || '',\n    address: data.address || data.street || '',\n    rating: data.totalScore || data.rating || '',\n    phone: data.phone || data.phoneUnformatted || '',\n    status: 'scraped'\n  });\n}\n\n// Return clean leads as individual items for downstream nodes\nreturn leads.map(lead => ({ json: lead }));\n"
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000004",
+            "name": "Clean & Filter Leads",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                960,
+                300
+            ],
+            "notes": "Extracts name, website, address, rating, phone. Filters out any result with no website URL. Sets status to 'scraped'."
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "condition-has-website",
+                            "leftValue": "={{ $json.website }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "isNotEmpty"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000005",
+            "name": "Has Website?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                300
+            ],
+            "notes": "Double-check: only pass leads that have a website URL"
+        },
+        {
+            "parameters": {
+                "operation": "append",
+                "documentId": {
+                    "__rl": true,
+                    "mode": "id",
+                    "value": "={{$env.GOOGLE_SHEET_ID}}"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "mode": "name",
+                    "value": "Leads"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "name": "={{ $json.name }}",
+                        "website": "={{ $json.website }}",
+                        "address": "={{ $json.address }}",
+                        "rating": "={{ $json.rating }}",
+                        "phone": "={{ $json.phone }}",
+                        "status": "={{ $json.status }}"
+                    },
+                    "matchingColumns": [],
+                    "schema": [
+                        {
+                            "id": "name",
+                            "displayName": "name",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "website",
+                            "displayName": "website",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "address",
+                            "displayName": "address",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "rating",
+                            "displayName": "rating",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "phone",
+                            "displayName": "phone",
+                            "required": false,
+                            "defaultMatch": false
+                        },
+                        {
+                            "id": "status",
+                            "displayName": "status",
+                            "required": false,
+                            "defaultMatch": false
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000006",
+            "name": "Save to Google Sheet",
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.5,
+            "position": [
+                1440,
+                300
+            ],
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "REPLACE_WITH_CREDENTIAL_ID",
+                    "name": "Google Sheets OAuth2"
+                }
+            },
+            "notes": "Appends each lead to the 'Leads' sheet. Columns: name, website, address, rating, phone, status. Requires Google Sheets OAuth2 credential configured in n8n."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Count total leads saved\nconst items = $input.all();\nconst count = items.length;\nreturn [{ json: { message: `✅ Scraping complete. ${count} leads saved to Google Sheets with status 'scraped'.`, leadsCount: count } }];\n"
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000007",
+            "name": "Summary",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1680,
+                300
+            ],
+            "notes": "Outputs a summary of how many leads were scraped and saved"
+        },
+        {
+            "parameters": {
+                "sendTo": "={{$env.ALERT_EMAIL || 'your-email@gmail.com'}}",
+                "subject": "⚠️ Cold Email Pipeline — Apify Scraper Failed",
+                "emailType": "text",
+                "message": "=The Apify Google Maps Scraper returned an error.\n\nStatus: {{ $json.statusCode || 'unknown' }}\nResponse: {{ JSON.stringify($json).substring(0, 1000) }}\n\nCheck your APIFY_API_KEY and the actor status at https://console.apify.com",
+                "options": {}
+            },
+            "id": "a1b2c3d4-0001-4000-8000-000000000008",
+            "name": "Send Error Alert",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.1,
+            "position": [
+                720,
+                520
+            ],
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "REPLACE_WITH_CREDENTIAL_ID",
+                    "name": "Gmail OAuth2"
+                }
+            },
+            "notes": "Sends an error alert email if the Apify scraper fails (non-200 response). Replace credential ID with your Gmail OAuth2 credential."
+        },
+        {
+            "parameters": {},
+            "id": "a1b2c3d4-0001-4000-8000-000000000009",
+            "name": "No Website — Skip",
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                1440,
+                500
+            ],
+            "notes": "Leads without a website URL are dropped here"
+        }
+    ],
+    "connections": {
+        "Start": {
+            "main": [
+                [
+                    {
+                        "node": "Start Apify Scraper",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Start Apify Scraper": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Scraper Results",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Check Apify Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Apify Error": {
+            "main": [
+                [
+                    {
+                        "node": "Send Error Alert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Scraper Results": {
+            "main": [
+                [
+                    {
+                        "node": "Clean & Filter Leads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Clean & Filter Leads": {
+            "main": [
+                [
+                    {
+                        "node": "Has Website?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Has Website?": {
+            "main": [
+                [
+                    {
+                        "node": "Save to Google Sheet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "No Website — Skip",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save to Google Sheet": {
+            "main": [
+                [
+                    {
+                        "node": "Summary",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "pinData": {},
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [
+        {
+            "name": "cold-email-pipeline",
+            "id": "tag-cold-email"
+        }
+    ],
+    "triggerCount": 0,
+    "updatedAt": "2026-02-28T00:00:00.000Z",
+    "versionId": "1"
+}

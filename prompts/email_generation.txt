@@ -1,0 +1,17 @@
+Write a cold outreach email for a freelance web designer contacting a restaurant owner.
+
+Inputs:
+- Restaurant name: {{restaurant_name}}
+- Owner/contact name (if known): {{contact_name}} — if unknown use "Hi there"
+- Website problem identified: {{website_problem}}
+
+Rules:
+- Maximum 5 sentences
+- Sentence 1: Short compliment or neutral opener referencing their restaurant specifically
+- Sentence 2: The specific website problem (use the exact input, rephrase slightly if needed)
+- Sentence 3: What you do and how fast (fixed price, done in 3–5 days)
+- Sentence 4: Low-friction CTA — ask if they want to see an example, not a call
+- Sentence 5: Sign off as Adrians
+
+Tone: Casual, direct, confident. Not salesy. Not formal.
+Output: Subject line + email body. Nothing else.
