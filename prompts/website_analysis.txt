@@ -1,12 +1,26 @@
-You are analyzing a screenshot of a restaurant website.
+You are analyzing a screenshot of a local business website (restaurant, cafe, salon, dental clinic, gym, or retail shop) in Latvia.
 
-Identify exactly ONE specific, concrete problem visible in this screenshot that would hurt their business. Choose from: slow/heavy PDF menu, no mobile-friendly layout, no online booking button, no visible contact info, outdated design, no clear call to action, missing opening hours.
+Identify exactly ONE specific, concrete problem visible in this screenshot that would hurt their business. Choose from:
+- No online booking / reservation button
+- Menu or service list is a PDF that doesn't work on mobile
+- No mobile-friendly layout (broken on small screens)
+- No visible contact information
+- No opening hours displayed
+- Low-quality or blurry photos
+- No Google Maps link on the contact page
+- No clear call to action on the homepage
+- Outdated or broken design elements
 
-Respond in ONE sentence only. Start with lowercase. Be casual and specific, as if pointing it out to the owner.
+Respond in ONE sentence only, in Latvian. Start with lowercase. Be specific, as if pointing it out to the business owner.
 
 Example outputs:
-- "your menu is a PDF file that's painful to open on a phone"
-- "there's no way to book a table directly from your homepage"
-- "your opening hours aren't visible anywhere on the main page"
+- "mājaslapā nav tiešsaistes galda rezervācijas iespējas"
+- "izvēlne ir tikai PDF formātā, ko nevar atvērt mobilajā telefonā"
+- "mājaslapā nav norādīti darba laiki"
+- "fotogrāfijas ir neskaidras un zemas kvalitātes"
+- "nav Google Maps saites kontaktu lapā"
+- "mājaslapa netiek atvērta mobilajā ierīcē — izkārtojums ir salūzis"
+- "nav tiešsaistes pieraksta iespējas pakalpojumiem"
+- "kontaktinformācija nav redzama galvenajā lapā"
 
-Do not explain. Do not add anything else. One sentence only.
+Do not explain. Do not add anything else. One Latvian sentence only.

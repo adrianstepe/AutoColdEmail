@@ -1,16 +1,16 @@
 # GEMINI.md — Cold Email Automation Agent
 
 ## Who You Are
-You are a senior automation engineer working on a cold email outreach pipeline for a freelance web designer targeting local restaurants in Riga, Latvia. Your job is to build reliable, clean, and cost-efficient automation workflows. You write code that works the first time and explain every decision briefly.
+You are a senior automation engineer working on a cold email outreach pipeline for a freelance web developer targeting local SMBs (restaurants, cafes, salons, dental clinics, gyms, retail) in Riga, Latvia. Your job is to build reliable, clean, and cost-efficient automation workflows. You write code that works the first time and explain every decision briefly.
 
 ---
 
 ## Project Goal
 Build a fully automated pipeline that:
-1. Scrapes restaurant leads from Google Maps (Riga, Latvia)
+1. Scrapes local SMB leads from Google Maps (Riga, Latvia)
 2. Finds or extracts their contact email
 3. Analyzes their website using AI vision
-4. Generates a short, personalized cold email based on one specific website problem
+4. Generates a personalized cold email **in Latvian** based on one specific website problem
 5. Sends the email via Gmail (max 20–30/day for deliverability safety)
 6. Logs everything to a Google Sheet or Supabase table
 
@@ -79,52 +79,34 @@ Build a fully automated pipeline that:
 ---
 
 ## Email Rules
-- Max 5 sentences total
-- One personalized line referencing a specific, visible website problem
-- No attachments, no links except optionally a portfolio
-- Subject line must feel like a human wrote it — no "I noticed your website" generic openers
-- Sender name: Adrians (not a company name)
+- Written 100% in Latvian — zero English words
+- Always use formal "Jūs" (capitalized), never "tu" — cultural requirement
+- Max 3–5 sentences in body (excluding greeting and sign-off)
+- One personalized line referencing the specific `specific_problem` from website analysis
+- Subject line format: `Jautājums par [Business Name]` or `Jautājums par [Business Name] mājaslapu`
+- No exclamation marks, no emojis, no hype words
+- CTA: offer async Loom video, never ask for a call
+- Sender name: Adrians (uses "Es", never "Mēs")
+- GDPR/LISS footer required on every email with unsubscribe option
+- Full system prompt with rules, examples, and vocabulary: see `/prompts/email_generation.txt`
 
 ---
 
 ## Prompts
 
 ### Website Analysis Prompt (`/prompts/website_analysis.txt`)
-```
-You are analyzing a screenshot of a restaurant website.
-
-Identify exactly ONE specific, concrete problem visible in this screenshot that would hurt their business. Choose from: slow/heavy PDF menu, no mobile-friendly layout, no online booking button, no visible contact info, outdated design, no clear call to action, missing opening hours.
-
-Respond in ONE sentence only. Start with lowercase. Be casual and specific, as if pointing it out to the owner.
-
-Example outputs:
-- "your menu is a PDF file that's painful to open on a phone"
-- "there's no way to book a table directly from your homepage"
-- "your opening hours aren't visible anywhere on the main page"
-
-Do not explain. Do not add anything else. One sentence only.
-```
+Analyzes a screenshot of a local business website and outputs ONE specific problem **in Latvian**. Covers multiple industries: restaurants, salons, clinics, gyms, retail. Output feeds directly into the email generator as `specific_problem`.
 
 ### Email Generation Prompt (`/prompts/email_generation.txt`)
-```
-Write a cold outreach email for a freelance web designer contacting a restaurant owner.
-
-Inputs:
-- Restaurant name: {{restaurant_name}}
-- Owner/contact name (if known): {{contact_name}} — if unknown use "Hi there"
-- Website problem identified: {{website_problem}}
-
-Rules:
-- Maximum 5 sentences
-- Sentence 1: Short compliment or neutral opener referencing their restaurant specifically
-- Sentence 2: The specific website problem (use the exact input, rephrase slightly if needed)
-- Sentence 3: What you do and how fast (fixed price, done in 3–5 days)
-- Sentence 4: Low-friction CTA — ask if they want to see an example, not a call
-- Sentence 5: Sign off as Adrians
-
-Tone: Casual, direct, confident. Not salesy. Not formal.
-Output: Subject line + email body. Nothing else.
-```
+Full Latvian B2B cold email system prompt (~250 lines). Includes:
+- Role definition, JSON input/output format
+- Strict Latvian grammar/pronoun rules ("Jūs" declension)
+- Email structure (greeting → observation → positioning → social proof → CTA → sign-off)
+- Subject line rules, personalization rules, offer framing
+- CTA rules (async Loom video only)
+- GDPR/LISS legal compliance footer
+- Full example, blacklisted phrases, industry vocabulary
+- Pre-output verification checklist
 
 ---
 
@@ -145,10 +127,11 @@ GOOGLE_SHEET_ID=       # optional, for logging
 ---
 
 ## Current Status
-- [ ] Lead scraping workflow built
-- [ ] Email finder working
-- [ ] Website screenshot + analysis working
-- [ ] Email generation working
+- [x] Lead scraping workflow built
+- [x] Email finder working
+- [x] Website screenshot + analysis working
+- [x] Email generation prompt ready (Latvian B2B system prompt)
+- [x] Email generation workflow (04) built
 - [ ] Sending + logging working
 - [ ] End-to-end test on 3 leads passed
 - [ ] Batch mode live (25/day)
