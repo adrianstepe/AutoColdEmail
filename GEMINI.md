@@ -132,6 +132,6 @@ GOOGLE_SHEET_ID=       # optional, for logging
 - [x] Website screenshot + analysis working
 - [x] Email generation prompt ready (Latvian B2B system prompt)
 - [x] Email generation workflow (04) built
-- [ ] Sending + logging working
+- [x] Sending + logging working
 - [ ] End-to-end test on 3 leads passed
 - [ ] Batch mode live (25/day)

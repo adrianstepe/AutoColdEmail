@@ -172,17 +172,26 @@ async function analyzeWithGemini(base64Image) {
  * Step 3: Generate a personalized cold email using Gemini
  * Returns: { subject, body } — the email content
  */
-async function generateEmail(restaurantName, websiteProblem) {
+async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
     console.log("\n✉️  Step 3: Generating email...");
 
     // Load the prompt template from file
     const promptPath = path.join(__dirname, "..", "prompts", "email_generation.txt");
-    let prompt = fs.readFileSync(promptPath, "utf-8").trim();
+    const basePrompt = fs.readFileSync(promptPath, "utf-8").trim();
 
-    // Fill in the template variables
-    prompt = prompt.replace("{{restaurant_name}}", restaurantName);
-    prompt = prompt.replace("{{contact_name}}", "Hi there"); // Default — no contact name in test mode
-    prompt = prompt.replace("{{website_problem}}", websiteProblem);
+    // Create the JSON payload string for Gemini to parse
+    const leadData = {
+        business_name: restaurantName,
+        owner_name: "", // Will use 'Labdien,' if empty based on prompt rules
+        city: "Rīga",
+        industry: "uzņēmums",
+        specific_problem: websiteProblem,
+        website_url: websiteUrl,
+        sender_name: "Adrians",
+        sender_email: "adrians@auto-cold-email.lv"
+    };
+
+    const prompt = basePrompt + "\n\n---\n\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\n" + JSON.stringify(leadData);
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -199,6 +208,7 @@ async function generateEmail(restaurantName, websiteProblem) {
         generationConfig: {
             temperature: 0.7,
             maxOutputTokens: 500,
+            response_mime_type: "application/json"
         },
     };
 
@@ -245,7 +255,7 @@ async function main() {
         const websiteProblem = await analyzeWithGemini(screenshot);
 
         // Step 3: Generate email
-        const emailContent = await generateEmail(restaurantName, websiteProblem);
+        const emailContent = await generateEmail(restaurantName, websiteUrl, websiteProblem);
 
         // Output results
         console.log("\n═══════════════════════════════════════════════════");
