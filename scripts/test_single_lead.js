@@ -27,14 +27,16 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 function httpsGetBuffer(url) {
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
-            if (res.statusCode !== 200) {
-                reject(new Error(`HTTP ${res.statusCode} from ${url}`));
-                res.resume();
-                return;
-            }
             const chunks = [];
             res.on("data", (chunk) => chunks.push(chunk));
-            res.on("end", () => resolve(Buffer.concat(chunks)));
+            res.on("end", () => {
+                const buffer = Buffer.concat(chunks);
+                if (res.statusCode !== 200) {
+                    reject(new Error(`HTTP ${res.statusCode} from ${url}\nBody: ${buffer.toString()}`));
+                    return;
+                }
+                resolve(buffer);
+            });
             res.on("error", reject);
         }).on("error", reject);
     });
@@ -130,7 +132,7 @@ async function analyzeWithGemini(base64Image) {
     const promptPath = path.join(__dirname, "..", "prompts", "website_analysis.txt");
     const prompt = fs.readFileSync(promptPath, "utf-8").trim();
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const body = {
         contents: [
@@ -150,7 +152,7 @@ async function analyzeWithGemini(base64Image) {
         ],
         generationConfig: {
             temperature: 0.4,
-            maxOutputTokens: 150,
+            maxOutputTokens: 2048,
         },
     };
 
@@ -193,7 +195,7 @@ async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
 
     const prompt = basePrompt + "\n\n---\n\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\n" + JSON.stringify(leadData);
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
     const body = {
         contents: [
@@ -207,8 +209,7 @@ async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
         ],
         generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 500,
-            response_mime_type: "application/json"
+            maxOutputTokens: 4096
         },
     };
 

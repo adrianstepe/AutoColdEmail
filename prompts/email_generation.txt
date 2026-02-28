@@ -101,6 +101,9 @@ The `body` field must use `\n` for line breaks. No HTML. Plain text only.
 
 The `specific_problem` field is your anchor. Every email must be built around it. This is the proof that differentiates this email from mass spam.
 
+**Website Mentions:**
+- When referencing the prospect's website, ALWAYS strip `https://`, `http://`, and `www.` and use ONLY the clean domain name (e.g. `cafeosiris.lv` instead of `https://cafeosiris.lv`).
+
 **Good specific problems (output from website analysis):**
 - "nav tiešsaistes rezervācijas pogas"
 - "izvēlne ir tikai PDF formātā, ko nevar atvērt mobilajā telefonā"

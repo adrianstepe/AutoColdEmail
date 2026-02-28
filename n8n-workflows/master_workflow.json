@@ -1,0 +1,1692 @@
+{
+  "name": "Master Cold Email Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 01 SCRAPE LEADS\nOriginal file: 01_scrape_leads.json",
+        "height": 620,
+        "width": 2040,
+        "color": 6
+      },
+      "id": "sticky-[01]",
+      "name": "Sticky Note [01]",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -100
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0001-4000-8000-000000000001-[01]",
+      "name": "[01] Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/runs?token={{$env.APIFY_API_KEY}}&waitForFinish=120",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"searchStringsArray\": [\"beauty salon Riga Latvia\", \"nail salon Riga Latvia\"],\n  \"maxCrawledPlacesPerSearch\": 100,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
+        "options": {
+          "timeout": 180000
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000002-[01]",
+      "name": "[01] Start Apify Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "onError": "continueErrorOutput",
+      "notes": "Starts the Apify Google Maps Scraper actor. Waits up to 120s for results. Uses APIFY_API_KEY from environment."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-check-status",
+              "leftValue": "={{ $json.statusCode || $json.status }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000020-[01]",
+      "name": "[01] Check Apify Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        220
+      ],
+      "notes": "Routes Apify errors to the alert node"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.apify.com/v2/acts/compass~crawler-google-places/runs/last/dataset/items?token={{$env.APIFY_API_KEY}}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000003-[01]",
+      "name": "[01] Fetch Scraper Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        0
+      ],
+      "notes": "Fetches the dataset items from the last Apify run"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and clean lead data from Apify Google Maps results\n// Filter out leads with no website URL — per GEMINI.md rules\n\nconst items = $input.all();\nconst leads = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Skip if no website URL\n  if (!data.website && !data.url) {\n    continue;\n  }\n\n  leads.push({\n    name: data.title || data.name || 'Unknown',\n    website: data.website || data.url || '',\n    address: data.address || data.street || '',\n    rating: data.totalScore || data.rating || '',\n    phone: data.phone || data.phoneUnformatted || '',\n    status: 'scraped'\n  });\n}\n\n// Return clean leads as individual items for downstream nodes\nreturn leads.map(lead => ({ json: lead }));\n"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000004-[01]",
+      "name": "[01] Clean & Filter Leads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        0
+      ],
+      "notes": "Extracts name, website, address, rating, phone. Filters out any result with no website URL. Sets status to 'scraped'."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-website",
+              "leftValue": "={{ $json.website }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000005-[01]",
+      "name": "[01] Has Website?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        0
+      ],
+      "notes": "Double-check: only pass leads that have a website URL"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "name": "={{ $json.name }}",
+            "website": "={{ $json.website }}",
+            "address": "={{ $json.address }}",
+            "rating": "={{ $json.rating }}",
+            "phone": "={{ $json.phone }}",
+            "status": "={{ $json.status }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "address",
+              "displayName": "address",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000006-[01]",
+      "name": "[01] Save to Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1400,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "notes": "Appends each lead to the 'Leads' sheet. Columns: name, website, address, rating, phone, status. Requires Google Sheets OAuth2 credential configured in n8n."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Count total leads saved\nconst items = $input.all();\nconst count = items.length;\nreturn [{ json: { message: `✅ Scraping complete. ${count} leads saved to Google Sheets with status 'scraped'.`, leadsCount: count } }];\n"
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000007-[01]",
+      "name": "[01] Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        0
+      ],
+      "notes": "Outputs a summary of how many leads were scraped and saved"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{$env.ALERT_EMAIL || 'your-email@gmail.com'}}",
+        "subject": "⚠️ Cold Email Pipeline — Apify Scraper Failed",
+        "emailType": "text",
+        "message": "=The Apify Google Maps Scraper returned an error.\n\nStatus: {{ $json.statusCode || 'unknown' }}\nResponse: {{ JSON.stringify($json).substring(0, 1000) }}\n\nCheck your APIFY_API_KEY and the actor status at https://console.apify.com",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-4000-8000-000000000008-[01]",
+      "name": "[01] Send Error Alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        680,
+        220
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "notes": "Sends an error alert email if the Apify scraper fails (non-200 response). Replace credential ID with your Gmail OAuth2 credential."
+    },
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-0001-4000-8000-000000000009-[01]",
+      "name": "[01] No Website — Skip",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        200
+      ],
+      "notes": "Leads without a website URL are dropped here"
+    },
+    {
+      "parameters": {
+        "content": "## 02 FIND EMAILS\nOriginal file: 02_find_emails.json",
+        "height": 820,
+        "width": 2760,
+        "color": 6
+      },
+      "id": "sticky-[02]",
+      "name": "Sticky Note [02]",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        920
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "b1b2c3d4-0002-4000-8000-000000000001-[02]",
+      "name": "[02] Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        1020
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "scraped"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000002-[02]",
+      "name": "[02] Read Scraped Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        1020
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "notes": "Reads all leads from Google Sheets where status = 'scraped'. These are leads from workflow 01 that haven't been processed yet."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the domain from a full website URL\n// e.g. https://www.myrestaurant.lv/menu → myrestaurant.lv\n\nconst item = $input.item;\nconst url = item.json.website || '';\n\nlet domain = '';\ntry {\n  const parsed = new URL(url.startsWith('http') ? url : 'https://' + url);\n  domain = parsed.hostname.replace(/^www\\./, '');\n} catch (e) {\n  domain = url.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    domain: domain\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000003-[02]",
+      "name": "[02] Extract Domain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        1020
+      ],
+      "notes": "Extracts clean domain from website URL (strips protocol, www, path)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hunter.io/v2/domain-search?domain={{ $json.domain }}&api_key={{$env.HUNTER_API_KEY}}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000004-[02]",
+      "name": "[02] Hunter.io Domain Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        1020
+      ],
+      "onError": "continueErrorOutput",
+      "notes": "Calls Hunter.io Domain Search API to find email addresses for this domain. Returns up to 10 emails with confidence scores."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Hunter.io response and extract the best email\n// Prefers personal emails over generic ones, sorted by confidence\n// If no email found, pass through with empty email field for fallback\n\nconst item = $input.item;\nconst hunterData = item.json.data || item.json;\nconst emails = hunterData.emails || [];\n\n// Get the original lead data from the previous node\n// Hunter.io response replaces $json, so we need to reconstruct\nconst prevData = {\n  name: item.json._previousNode?.name || $('Extract Domain').item.json.name,\n  website: $('Extract Domain').item.json.website,\n  address: $('Extract Domain').item.json.address,\n  rating: $('Extract Domain').item.json.rating,\n  phone: $('Extract Domain').item.json.phone,\n  domain: $('Extract Domain').item.json.domain\n};\n\nif (emails.length === 0) {\n  // No emails found — will go to fallback\n  return [{\n    json: {\n      ...prevData,\n      email: '',\n      email_source: 'none',\n      email_confidence: 0\n    }\n  }];\n}\n\n// Sort: personal emails first, then by confidence score\nconst sorted = emails.sort((a, b) => {\n  if (a.type === 'personal' && b.type !== 'personal') return -1;\n  if (a.type !== 'personal' && b.type === 'personal') return 1;\n  return (b.confidence || 0) - (a.confidence || 0);\n});\n\nconst best = sorted[0];\n\nreturn [{\n  json: {\n    ...prevData,\n    email: best.value || '',\n    email_type: best.type || 'unknown',\n    email_confidence: best.confidence || 0,\n    email_source: 'hunter'\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000005-[02]",
+      "name": "[02] Extract Best Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        1020
+      ],
+      "notes": "Picks the best email from Hunter.io results. Prioritizes personal over generic, then by confidence score. If none found, passes empty email for fallback."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle Hunter.io API errors gracefully\n// Log the error and pass through with empty email for fallback\n\nconst prevData = {\n  name: $('Extract Domain').item.json.name,\n  website: $('Extract Domain').item.json.website,\n  address: $('Extract Domain').item.json.address,\n  rating: $('Extract Domain').item.json.rating,\n  phone: $('Extract Domain').item.json.phone,\n  domain: $('Extract Domain').item.json.domain\n};\n\nconsole.log(`Hunter.io API error for ${prevData.domain}:`, JSON.stringify($input.item.json).substring(0, 500));\n\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'hunter_error',\n    email_confidence: 0\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000006-[02]",
+      "name": "[02] Handle Hunter Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        1240
+      ],
+      "notes": "Handles Hunter.io API failures. Logs the raw error and passes the lead through with empty email so the fallback scraper can try."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-email",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000007-[02]",
+      "name": "[02] Email Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        1120
+      ],
+      "notes": "Routes leads: if Hunter found an email → update sheet. If not → try fallback contact page scraper."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.website.replace(/\\/$/, '') }}/contact",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 3
+            }
+          }
+        }
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000008-[02]",
+      "name": "[02] Scrape Contact Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1640,
+        1240
+      ],
+      "onError": "continueErrorOutput",
+      "notes": "Fallback: if Hunter.io found no email, try fetching the /contact page directly to scrape for email addresses."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fallback: extract email from the /contact page HTML\n// Uses a simple regex to find email addresses in the page source\n\nconst item = $input.item;\nconst html = typeof item.json === 'string' ? item.json : (item.json.data || item.json.body || JSON.stringify(item.json));\n\nconst prevData = {\n  name: $('Email Found?').item.json.name,\n  website: $('Email Found?').item.json.website,\n  address: $('Email Found?').item.json.address,\n  rating: $('Email Found?').item.json.rating,\n  phone: $('Email Found?').item.json.phone,\n  domain: $('Email Found?').item.json.domain\n};\n\n// Regex to find email addresses in HTML\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g;\nconst matches = html.match(emailRegex) || [];\n\n// Filter out common false positives\nconst filtered = matches.filter(e => \n  !e.includes('example.com') && \n  !e.includes('sentry.io') && \n  !e.includes('wixpress') &&\n  !e.includes('schema.org') &&\n  !e.includes('.png') &&\n  !e.includes('.jpg')\n);\n\nif (filtered.length > 0) {\n  return [{\n    json: {\n      ...prevData,\n      email: filtered[0],\n      email_source: 'contact_page',\n      email_confidence: 50,\n      status: 'email_found'\n    }\n  }];\n}\n\n// No email found anywhere — mark as no_email\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000009-[02]",
+      "name": "[02] Extract Email from HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        1240
+      ],
+      "notes": "Regex-scrapes email addresses from the /contact page HTML. Filters out false positives (tracking pixels, schemas). If found → email_found. If not → no_email."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Contact page fetch failed — mark lead as no_email\n\nconst prevData = {\n  name: $('Email Found?').item.json.name,\n  website: $('Email Found?').item.json.website,\n  address: $('Email Found?').item.json.address,\n  rating: $('Email Found?').item.json.rating,\n  phone: $('Email Found?').item.json.phone,\n  domain: $('Email Found?').item.json.domain\n};\n\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000010-[02]",
+      "name": "[02] Contact Page Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1880,
+        1440
+      ],
+      "notes": "Contact page returned an error (404, timeout, etc). Mark lead as no_email."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare lead data for sheet update — email was found via Hunter.io\nconst item = $input.item;\nreturn [{\n  json: {\n    ...item.json,\n    status: 'email_found'\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000011-[02]",
+      "name": "[02] Mark as Email Found",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1640,
+        1020
+      ],
+      "notes": "Sets status to email_found for leads where Hunter.io returned an email"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email": "={{ $json.email }}",
+            "status": "={{ $json.status }}",
+            "email_source": "={{ $json.email_source }}",
+            "email_confidence": "={{ $json.email_confidence }}"
+          },
+          "matchingColumns": [
+            "name"
+          ],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": true
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "email_source",
+              "displayName": "email_source",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "email_confidence",
+              "displayName": "email_confidence",
+              "required": false,
+              "defaultMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000012-[02]",
+      "name": "[02] Update Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2120,
+        1120
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      },
+      "notes": "Updates each lead row in the Google Sheet with: email, status (email_found or no_email), email_source, email_confidence. Matches by restaurant name."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Summary: count how many emails were found vs not found\nconst items = $input.all();\nconst found = items.filter(i => i.json.status === 'email_found').length;\nconst notFound = items.filter(i => i.json.status === 'no_email').length;\n\nreturn [{\n  json: {\n    message: `✅ Email search complete. ${found} emails found, ${notFound} leads with no email.`,\n    emailsFound: found,\n    noEmail: notFound,\n    total: items.length\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000013-[02]",
+      "name": "[02] Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2360,
+        1120
+      ],
+      "notes": "Final summary: how many emails found vs not found"
+    },
+    {
+      "parameters": {
+        "content": "## 03 ANALYZE WEBSITE\nOriginal file: 03_analyze_website.json",
+        "height": 800,
+        "width": 3140,
+        "color": 6
+      },
+      "id": "sticky-[03]",
+      "name": "Sticky Note [03]",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        2140
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c1c2c3d4-0003-4000-8000-000000000001-[03]",
+      "name": "[03] Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        2440
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "email_found"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000002-[03]",
+      "name": "[03] Read Leads (email_found)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        400,
+        2440
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.website }}",
+        "options": {
+          "timeout": 15000,
+          "allowUnauthorizedCerts": true,
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 3
+            }
+          }
+        }
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000003-[03]",
+      "name": "[03] Check Website Alive",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        2440
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-alive",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000004-[03]",
+      "name": "[03] Alive?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        800,
+        2440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nreturn [{\n  json: {\n    ...lead,\n    status: 'dead_site',\n    specific_problem: ''\n  }\n}];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000005-[03]",
+      "name": "[03] Handle Dead Site",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        2640
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.screenshotone.com/take?access_key={{$env.SCREENSHOTONE_API_KEY}}&url={{encodeURIComponent($('Read Leads (email_found)').item.json.website)}}&viewport_width=1280&viewport_height=900&format=png&full_page=false&block_ads=true&response_type=base64",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000006-[03]",
+      "name": "[03] Take Screenshot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        2400
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-screenshot-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000007-[03]",
+      "name": "[03] Screenshot Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconsole.error(\"Screenshot error for \" + lead.website, $input.item.json);\nreturn [{\n  json: {\n    ...lead,\n    status: 'screenshot_failed',\n    specific_problem: ''\n  }\n}];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000008-[03]",
+      "name": "[03] Handle Screenshot Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        2600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\n// 1. Get Base64 image\n// HTTP node outputs either the raw string in data, or as entire response.\nconst base64Image = typeof $input.item.json === 'string' ? $input.item.json : ($input.item.json.data || $input.item.json.body || $input.item.json.base64);\n\n// 2. Load prompt\nconst workspaceDir = process.cwd();\nconst promptPath = path.join(workspaceDir, 'prompts', 'website_analysis.txt');\nconst prompt = fs.readFileSync(promptPath, 'utf8');\n\n// 3. Build body\nconst body = {\n    contents: [\n        {\n            parts: [\n                { inline_data: { mime_type: \"image/png\", data: base64Image } },\n                { text: prompt }\n            ]\n        }\n    ],\n    generationConfig: {\n        temperature: 0.4,\n        maxOutputTokens: 2048\n    }\n};\n\nreturn [{ json: body }];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000009-[03]",
+      "name": "[03] Build Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        2320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{$env.GEMINI_API_KEY}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 60000,
+          "bodyContentType": "json"
+        }
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000010-[03]",
+      "name": "[03] Gemini Vision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1740,
+        2320
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-gemini-error",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000011-[03]",
+      "name": "[03] Gemini Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        2320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconsole.error(\"Gemini Vision error for \" + lead.website, $input.item.json);\nreturn [{\n  json: {\n    ...lead,\n    status: 'analysis_failed',\n    specific_problem: ''\n  }\n}];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000012-[03]",
+      "name": "[03] Handle Gemini Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        2500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconst result = $input.item.json;\nlet analysis = '';\n\ntry {\n  analysis = result.candidates[0].content.parts[0].text.trim();\n} catch (e) {\n  return [{\n    json: {\n      ...lead,\n      status: 'analysis_failed',\n      specific_problem: ''\n    }\n  }];\n}\n\nif (!analysis) {\n  return [{\n    json: {\n      ...lead,\n      status: 'analysis_failed',\n      specific_problem: ''\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...lead,\n    status: 'analyzed',\n    specific_problem: analysis\n  }\n}];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000013-[03]",
+      "name": "[03] Extract Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        2240
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$env.GOOGLE_SHEET_ID}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $json.status }}",
+            "specific_problem": "={{ $json.specific_problem }}"
+          },
+          "matchingColumns": [
+            "name"
+          ],
+          "schema": [
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "specific_problem",
+              "displayName": "specific_problem",
+              "required": false,
+              "defaultMatch": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000014-[03]",
+      "name": "[03] Update Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        2500,
+        2380
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nlet analyzed = 0, dead = 0, screenshot_fail = 0, analysis_fail = 0;\n\nfor (const item of items) {\n  const status = item.json.status;\n  if (status === 'analyzed') analyzed++;\n  else if (status === 'dead_site') dead++;\n  else if (status === 'screenshot_failed') screenshot_fail++;\n  else if (status === 'analysis_failed') analysis_fail++;\n}\n\nreturn [{\n  json: {\n    message: '✅ Website Analysis complete.',\n    analyzed,\n    dead_sites: dead,\n    screenshot_failures: screenshot_fail,\n    analysis_failures: analysis_fail,\n    total: items.length\n  }\n}];"
+      },
+      "id": "c1c2c3d4-0003-4000-8000-000000000015-[03]",
+      "name": "[03] Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2740,
+        2380
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 04 GENERATE EMAIL\nOriginal file: 04_generate_email.json",
+        "height": 600,
+        "width": 2160,
+        "color": 6
+      },
+      "id": "sticky-[04]",
+      "name": "Sticky Note [04]",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        3340
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "1-[04]",
+      "name": "[04] Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        3640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env.GOOGLE_SHEET_ID}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "id": "2-[04]",
+      "name": "[04] Read Analyzed Leads",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.1,
+      "position": [
+        400,
+        3640
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "analyzed"
+            }
+          ]
+        }
+      },
+      "id": "3-[04]",
+      "name": "[04] Filter Analyzed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        600,
+        3640
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst prompt = \"# SYSTEM PROMPT — Latvian B2B Cold Email Generator\\n### For use in n8n AI node (Gemini / GPT)\\n\\n---\\n\\n## ROLE\\n\\nYou are a native Latvian B2B copywriter specializing in cold email outreach for local SMBs (restaurants, cafes, salons, dental clinics, gyms, retail). You write short, formal, grammatically flawless Latvian business emails that are deeply personalized, culturally appropriate, and legally compliant.\\n\\nYou are NOT a marketing AI. You do not use hype, enthusiasm, or sales language. You write like a pragmatic local consultant — austere, direct, respectful.\\n\\n---\\n\\n## INPUT YOU WILL RECEIVE\\n\\nYou will receive a JSON object with the following fields:\\n\\n```json\\n{\\n  \\\"business_name\\\": \\\"Restorāns Vējš\\\",\\n  \\\"owner_name\\\": \\\"Jānis\\\",\\n  \\\"city\\\": \\\"Rīga\\\",\\n  \\\"industry\\\": \\\"restorāns\\\",\\n  \\\"specific_problem\\\": \\\"nav tiešsaistes rezervācijas iespējas\\\",\\n  \\\"website_url\\\": \\\"vejsrestaurant.lv\\\",\\n  \\\"sender_name\\\": \\\"Adrians\\\",\\n  \\\"sender_email\\\": \\\"adrians@example.lv\\\"\\n}\\n```\\n\\n> `specific_problem` is the single most important field. It comes from automated website analysis (Gemini screenshot analysis in the pipeline). It must be referenced verbatim and specifically — this is what proves the email is not mass spam.\\n\\n---\\n\\n## OUTPUT FORMAT\\n\\nReturn a JSON object:\\n\\n```json\\n{\\n  \\\"subject\\\": \\\"...\\\",\\n  \\\"body\\\": \\\"...\\\"\\n}\\n```\\n\\nThe `body` field must use `\\\\n` for line breaks. No HTML. Plain text only.\\n\\n---\\n\\n## STRICT WRITING RULES\\n\\n### Language\\n- Write **100% in Latvian**. Zero English words, zero code-switching.\\n- Grammar must be **native-level perfect**. Wrong case endings (e.g., nominative instead of genitive), wrong verb forms, or machine-translated phrasing will destroy credibility immediately.\\n- Do NOT use AI-sounding or over-formal bureaucratic language. Write like an educated local professional, not a government form.\\n\\n### Pronouns — CRITICAL\\n- **Always use \\\"Jūs\\\" (capitalized)** when referring to the recipient. Never \\\"tu\\\" or lowercase \\\"jūs\\\".\\n- Apply correct grammatical declension:\\n  - Nominative: **Jūs**\\n  - Genitive: **Jūsu**\\n  - Dative: **Jums**\\n  - Accusative: **Jūs**\\n- Using \\\"tu\\\" or lowercase \\\"jūs\\\" in a first-touch cold email is a severe cultural offense. It guarantees deletion.\\n\\n### Tone\\n- Formal, but not stiff or bureaucratic\\n- Calm, measured, pragmatic\\n- No enthusiasm. No exclamation marks (!)\\n- No emojis\\n- No phrases like \\\"I hope this finds you well\\\" — this is recognized immediately as filler and considered disrespectful of the reader's time\\n- Write as a peer-level consultant, not a vendor pitching\\n\\n### Length\\n- **3–5 sentences maximum in the body** (excluding greeting and sign-off)\\n- Latvian business owners despise long emails\\n- If you cannot say it in 5 sentences, cut it down. Brevity signals respect.\\n\\n### Structure (follow this exact sequence)\\n\\n1. **Greeting** — `Labdien, [First Name],` (if name unknown: `Labdien,`)\\n2. **Specific Observation** — One sentence referencing the exact problem found on their website/business. This must feel hand-researched, not templated.\\n3. **Who you are + what you do** — One sentence. Niche-specialist framing only. Never say \\\"we\\\" if working alone.\\n4. **Social proof or mechanism** — One sentence. Keep modest and believable. Reference similar local businesses if possible. No grand numbers.\\n5. **CTA** — Ask a simple yes/no question. Offer an async 2–3 minute Loom video. Never ask for a call or meeting in the first email.\\n6. **Sign-off** — `Ar cieņu,\\\\n[Sender Name]\\\\n[Email]\\\\n\\\\n[GDPR footer]`\\n\\n---\\n\\n## SUBJECT LINE RULES\\n\\n- Format: `Jautājums par [Business Name]` OR `Jautājums par [Business Name] mājaslapu`\\n- Factual, neutral, zero hype\\n- No question marks in subject line\\n- No emojis\\n- Must not trigger spam filters — avoid words like \\\"bezmaksas\\\", \\\"akcija\\\", \\\"garantija\\\", \\\"piedāvājums\\\" in the subject\\n\\n---\\n\\n## PERSONALIZATION RULES\\n\\nThe `specific_problem` field is your anchor. Every email must be built around it. This is the proof that differentiates this email from mass spam.\\n\\n**Good specific problems (output from website analysis):**\\n- \\\"nav tiešsaistes rezervācijas pogas\\\"\\n- \\\"izvēlne ir tikai PDF formātā, ko nevar atvērt mobilajā telefonā\\\"\\n- \\\"mājaslapā nav norādīti darba laiki\\\"\\n- \\\"fotogrāfijas ir neskaidras un zemas kvalitātes\\\"\\n- \\\"nav Google Maps saites kontaktu lapā\\\"\\n- \\\"mājaslapa netiek atvērta mobilajā ierīcē — izkārtojums ir salūzis\\\"\\n\\n**Bad / too generic (do not use alone):**\\n- \\\"mājaslapa ir novecojusi\\\"\\n- \\\"dizains ir vecs\\\"\\n- \\\"jāuzlabo SEO\\\"\\n\\nIf the `specific_problem` is vague, make it feel specific by tying it to a concrete consequence: lost mobile customers, missed bookings, confused visitors.\\n\\n---\\n\\n## OFFER FRAMING\\n\\nYou are Adrians — a specialized web developer who builds fast, modern websites and booking systems exclusively for local Latvian service businesses (restaurants, clinics, salons).\\n\\n**Frame yourself as:**\\n> A hyper-specialized local expert, not a generalist agency.\\n\\n**Correct positioning examples:**\\n- \\\"Es specializējos tieši restorānu mājaslapu izveidē Rīgā.\\\"\\n- \\\"Es strādāju tikai ar vietējiem pakalpojumu uzņēmumiem — restorāniem, saloniem un klīnikām.\\\"\\n\\n**Never say:**\\n- \\\"Mūsu aģentūra...\\\" (implies a team you don't have)\\n- \\\"Mēs varam...\\\" (use \\\"Es varu...\\\")\\n- \\\"Mēs esam eksperti...\\\"\\n- Any claims with hard guarantees or percentages you can't prove\\n\\n---\\n\\n## CTA RULES\\n\\nThe call to action must be **the lowest possible friction**. A Latvian business owner will not book a call with a stranger. Do not ask.\\n\\n**Best CTA options:**\\n- Offer a short async Loom video (2–3 min) showing exactly what's wrong and how to fix it\\n- Ask a simple yes/no: \\\"Vai Jums būtu interese saņemt īsu video par to?\\\"\\n- Ask for permission to send one concrete example\\n\\n**Never:**\\n- Ask for a 30-minute call\\n- Ask to schedule a meeting\\n- Say \\\"let's connect\\\" or equivalent\\n- Provide a Calendly link in the first email\\n\\n---\\n\\n## LEGAL COMPLIANCE (GDPR + LISS)\\n\\nEvery email body must end with this footer (adapt sender details):\\n\\n```\\n---\\nŠis e-pasts tika nosūtīts, jo Jūsu kontaktinformācija ir publiski pieejama Jūsu uzņēmuma mājaslapā. Ja nevēlaties saņemt šādus e-pastus, lūdzu, atbildiet ar vārdu \\\"Atteikties\\\" vai noklikšķiniet šeit: [UNSUBSCRIBE_LINK]\\n```\\n\\nThis satisfies:\\n- GDPR Article 6.1(f) Legitimate Interest — data sourced publicly\\n- LISS Section 9 — opt-out mechanism required in every commercial communication\\n- Sender identity transparency requirement\\n\\n> Do NOT omit this footer. Sending without an opt-out is illegal under Latvian law and will destroy sender reputation.\\n\\n---\\n\\n## FULL EXAMPLE OUTPUT\\n\\n**Input:**\\n```json\\n{\\n  \\\"business_name\\\": \\\"Restorāns Vējš\\\",\\n  \\\"owner_name\\\": \\\"Jānis\\\",\\n  \\\"city\\\": \\\"Rīga\\\",\\n  \\\"industry\\\": \\\"restorāns\\\",\\n  \\\"specific_problem\\\": \\\"mājaslapā nav tiešsaistes galda rezervācijas iespējas\\\",\\n  \\\"website_url\\\": \\\"vejsrestaurant.lv\\\",\\n  \\\"sender_name\\\": \\\"Adrians\\\",\\n  \\\"sender_email\\\": \\\"adrians@example.lv\\\"\\n}\\n```\\n\\n**Output:**\\n```json\\n{\\n  \\\"subject\\\": \\\"Jautājums par Restorāns Vējš mājaslapu\\\",\\n  \\\"body\\\": \\\"Labdien, Jāni,\\\\n\\\\nIzskatot Jūsu mājaslapu vejsrestaurant.lv, pamanīju, ka tajā šobrīd nav tiešsaistes galda rezervācijas iespējas — klienti, kas meklē galdu vakarā, visticamāk, vienkārši dodas pie konkurentiem.\\\\n\\\\nEs specializējos tieši restorānu un kafejnīcu mājaslapu izveidē Rīgā, pievienojot vienkāršas rezervācijas sistēmas, kas darbojas gan datorā, gan mobilajā telefonā.\\\\n\\\\nNesen palīdzēju līdzīgam Rīgas restorānam ieviest šo risinājumu divu nedēļu laikā.\\\\n\\\\nVai Jums būtu interese saņemt īsu, 3 minūšu video, kurā parādu, kā tas varētu izskatīties Jūsu mājaslapā?\\\\n\\\\nAr cieņu,\\\\nAdrians\\\\nadrians@example.lv\\\\n\\\\n---\\\\nŠis e-pasts tika nosūtīts, jo Jūsu kontaktinformācija ir publiski pieejama Jūsu uzņēmuma mājaslapā. Ja nevēlaties saņemt šādus e-pastus, lūdzu, atbildiet ar vārdu \\\\\\\"Atteikties\\\\\\\" vai noklikšķiniet šeit: [UNSUBSCRIBE_LINK]\\\"\\n}\\n```\\n\\n---\\n\\n## WHAT NEVER TO WRITE — BLACKLIST\\n\\nThe following will trigger immediate distrust or deletion in a Latvian business owner:\\n\\n| Avoid | Use instead |\\n|---|---|\\n| \\\"Ceru, ka šis e-pasts Jūs sasniedz labā veselībā\\\" | Jump straight to the observation |\\n| \\\"Mēs esam vadošā aģentūra...\\\" | \\\"Es specializējos...\\\" |\\n| \\\"Garantējam rezultātus!\\\" | \\\"Vidēji palīdz uzņēmumiem...\\\" |\\n| \\\"Revolucionārs risinājums\\\" | Describe the concrete feature |\\n| \\\"Sveiki!\\\" | \\\"Labdien,\\\" |\\n| \\\"tu/tava\\\" | \\\"Jūs/Jūsu\\\" |\\n| Multiple exclamation marks | None |\\n| Emojis | None |\\n| \\\"Bezmaksas konsultācija\\\" in subject | Keep subject factual |\\n| \\\"Piedāvājam pakalpojumus...\\\" | Specific problem + specific solution |\\n\\n---\\n\\n## INDUSTRY-SPECIFIC VOCABULARY REFERENCE\\n\\nUse these Latvian terms correctly depending on industry:\\n\\n**Restaurants / Cafes:**\\n- galda rezervācija — table reservation\\n- ēdienkarte — menu\\n- tiešsaistes pasūtījums — online order\\n- piegāde — delivery\\n- atvēršanas laiks — opening hours\\n\\n**Salons / Spas:**\\n- pieraksts — appointment booking\\n- pakalpojumu saraksts — service list\\n- skaistumkopšana — beauty care\\n- procedūras — treatments\\n\\n**Dental / Medical:**\\n- vizītes rezervācija — appointment booking\\n- ārstu saraksts — list of doctors\\n- pakalpojumi — services\\n- kontaktinformācija — contact information\\n\\n**General:**\\n- mājaslapa — website\\n- mobilā ierīce — mobile device\\n- tiešsaistē — online\\n- klientu piesaiste — client acquisition\\n- rezervācijas sistēma — booking system\\n\\n---\\n\\n## FINAL CHECKLIST BEFORE OUTPUT\\n\\nBefore returning the email, verify every item:\\n\\n- [ ] Written 100% in Latvian, zero English\\n- [ ] \\\"Jūs\\\" capitalized throughout, correct case declension\\n- [ ] Body is 3–5 sentences (excluding greeting and sign-off)\\n- [ ] Specific problem from input is referenced explicitly\\n- [ ] No exclamation marks, no emojis\\n- [ ] No \\\"hope this finds you well\\\" or equivalent filler\\n- [ ] Sender uses \\\"Es\\\" not \\\"Mēs\\\"\\n- [ ] CTA is yes/no or async video offer — no call request\\n- [ ] Subject line is factual, no hype words\\n- [ ] Sign-off is \\\"Ar cieņu,\\\"\\n- [ ] GDPR/LISS footer is present with unsubscribe option\\n- [ ] Output is valid JSON with \\\"subject\\\" and \\\"body\\\" keys\\n\";\n\nconst item = $input.item;\nconst lead = item.json;\n\n// Extract required fields\nconst business_name = lead.name || '';\nconst owner_name = '' || 'Vadītāj'; // Assuming owner name might not be known, leaving logic here if we add it later. Or we can just leave it blank if not in lead sheet.\nconst city = lead.address || 'Rīga';\nconst industry = '' || 'uzņēmums'; // Default fallback\nconst specific_problem = lead.specific_problem || '';\nconst website_url = lead.website || '';\nconst sender_name = 'Adrians';\nconst sender_email = 'adrians@auto-cold-email.lv';\n\n// Create the JSON payload string for Gemini to parse\nconst leadData = {\n  business_name: business_name,\n  owner_name: owner_name, // Will use 'Labdien,' if empty based on prompt rules\n  city: city,\n  industry: industry,\n  specific_problem: specific_problem,\n  website_url: website_url,\n  sender_name: sender_name,\n  sender_email: sender_email\n};\n\nconst fullPrompt = prompt + \"\\n\\n---\\n\\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\\n\" + JSON.stringify(leadData);\n\nconst body = {\n  contents: [\n    {\n      parts: [\n        { text: fullPrompt }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.7,\n    maxOutputTokens: 4096,\n    response_mime_type: \"application/json\"\n  }\n};\n\nreturn [{\n  json: {\n    ...lead,\n    gemini_body: body\n  }\n}];\n"
+      },
+      "id": "4-[04]",
+      "name": "[04] Build Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        3540
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{$env.GEMINI_API_KEY}}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawBody": "={{ JSON.stringify($json.gemini_body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "5-[04]",
+      "name": "[04] Gemini Email Generator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1040,
+        3540
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst item = $input.item;\nconst response = item.json;\n\n// Keep original lead data (we passed it through the HTTP node or can access prior node)\nconst prevData = {\n  name: $('Build Gemini Request').item.json.name,\n  website: $('Build Gemini Request').item.json.website,\n  email: $('Build Gemini Request').item.json.email,\n  specific_problem: $('Build Gemini Request').item.json.specific_problem\n};\n\nlet emailJson = null;\n\ntry {\n  let text = response.candidates[0].content.parts[0].text;\n  \n  // Clean up markdown formatting if Gemini returned it despite application/json mime type\n  if (text.startsWith('```json')) {\n    text = text.substring(7);\n  } else if (text.startsWith('```')) {\n    text = text.substring(3);\n  }\n  \n  if (text.endsWith('```\\n')) {\n    text = text.substring(0, text.length - 4);\n  } else if (text.endsWith('```')) {\n    text = text.substring(0, text.length - 3);\n  }\n  \n  emailJson = JSON.parse(text);\n} catch (e) {\n  console.log('Failed to parse Gemini JSON: ' + e.message);\n}\n\nif (!emailJson || !emailJson.subject || !emailJson.body) {\n  return [{\n    json: {\n      ...prevData,\n      status: 'generation_failed'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...prevData,\n    email_subject: emailJson.subject,\n    email_body: emailJson.body,\n    status: 'email_generated'\n  }\n}];\n"
+      },
+      "id": "6-[04]",
+      "name": "[04] Extract Email JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        3440
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst prevData = $('Build Gemini Request').item.json;\n\nreturn [{\n  json: {\n    ...prevData,\n    gemini_error: $input.item.json.message || 'Unknown Gemini error',\n    status: 'generation_failed'\n  }\n}];\n"
+      },
+      "id": "7-[04]",
+      "name": "[04] Handle Gemini Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        3640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$env.GOOGLE_SHEET_ID}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columnToMatchOn": "name",
+        "valueToMatchOn": "={{ $json.name }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "column": "email_subject",
+              "value": "={{ $json.email_subject }}"
+            },
+            {
+              "column": "email_body",
+              "value": "={{ $json.email_body }}"
+            },
+            {
+              "column": "status",
+              "value": "={{ $json.status }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8-[04]",
+      "name": "[04] Update Google Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.1,
+      "position": [
+        1540,
+        3540
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst items = $input.all();\nlet success = 0;\nlet failed = 0;\n\nfor (const item of items) {\n  if (item.json.status === 'email_generated') {\n    success++;\n  } else {\n    failed++;\n  }\n}\n\nreturn [{\n  json: {\n    summary: 'Workflow 04 Complete',\n    generated_emails: success,\n    failed_generations: failed\n  }\n}];\n"
+      },
+      "id": "9-[04]",
+      "name": "[04] Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        3540
+      ]
+    }
+  ],
+  "connections": {
+    "[01] Start": {
+      "main": [
+        [
+          {
+            "node": "[01] Start Apify Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[01] Start Apify Scraper": {
+      "main": [
+        [
+          {
+            "node": "[01] Fetch Scraper Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[01] Check Apify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[01] Check Apify Error": {
+      "main": [
+        [
+          {
+            "node": "[01] Send Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[01] Fetch Scraper Results": {
+      "main": [
+        [
+          {
+            "node": "[01] Clean & Filter Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[01] Clean & Filter Leads": {
+      "main": [
+        [
+          {
+            "node": "[01] Has Website?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[01] Has Website?": {
+      "main": [
+        [
+          {
+            "node": "[01] Save to Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[01] No Website — Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[01] Save to Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "[01] Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Start": {
+      "main": [
+        [
+          {
+            "node": "[02] Read Scraped Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Read Scraped Leads": {
+      "main": [
+        [
+          {
+            "node": "[02] Extract Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Extract Domain": {
+      "main": [
+        [
+          {
+            "node": "[02] Hunter.io Domain Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Hunter.io Domain Search": {
+      "main": [
+        [
+          {
+            "node": "[02] Extract Best Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[02] Handle Hunter Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Extract Best Email": {
+      "main": [
+        [
+          {
+            "node": "[02] Email Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Handle Hunter Error": {
+      "main": [
+        [
+          {
+            "node": "[02] Email Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Email Found?": {
+      "main": [
+        [
+          {
+            "node": "[02] Mark as Email Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[02] Scrape Contact Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Mark as Email Found": {
+      "main": [
+        [
+          {
+            "node": "[02] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Scrape Contact Page": {
+      "main": [
+        [
+          {
+            "node": "[02] Extract Email from HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[02] Contact Page Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Extract Email from HTML": {
+      "main": [
+        [
+          {
+            "node": "[02] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Contact Page Failed": {
+      "main": [
+        [
+          {
+            "node": "[02] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[02] Update Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "[02] Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Start": {
+      "main": [
+        [
+          {
+            "node": "[03] Read Leads (email_found)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Read Leads (email_found)": {
+      "main": [
+        [
+          {
+            "node": "[03] Check Website Alive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Check Website Alive": {
+      "main": [
+        [
+          {
+            "node": "[03] Alive?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Alive?": {
+      "main": [
+        [
+          {
+            "node": "[03] Take Screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[03] Handle Dead Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Handle Dead Site": {
+      "main": [
+        [
+          {
+            "node": "[03] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Take Screenshot": {
+      "main": [
+        [
+          {
+            "node": "[03] Screenshot Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Screenshot Success?": {
+      "main": [
+        [
+          {
+            "node": "[03] Build Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[03] Handle Screenshot Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Handle Screenshot Error": {
+      "main": [
+        [
+          {
+            "node": "[03] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Build Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "[03] Gemini Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Gemini Vision": {
+      "main": [
+        [
+          {
+            "node": "[03] Gemini Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Gemini Success?": {
+      "main": [
+        [
+          {
+            "node": "[03] Extract Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[03] Handle Gemini Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Handle Gemini Error": {
+      "main": [
+        [
+          {
+            "node": "[03] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Extract Result": {
+      "main": [
+        [
+          {
+            "node": "[03] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[03] Update Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "[03] Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Start": {
+      "main": [
+        [
+          {
+            "node": "[04] Read Analyzed Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Read Analyzed Leads": {
+      "main": [
+        [
+          {
+            "node": "[04] Filter Analyzed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Filter Analyzed": {
+      "main": [
+        [
+          {
+            "node": "[04] Build Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Build Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "[04] Gemini Email Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Gemini Email Generator": {
+      "main": [
+        [
+          {
+            "node": "[04] Extract Email JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "[04] Handle Gemini Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Extract Email JSON": {
+      "main": [
+        [
+          {
+            "node": "[04] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Handle Gemini Error": {
+      "main": [
+        [
+          {
+            "node": "[04] Update Google Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "[04] Update Google Sheet": {
+      "main": [
+        [
+          {
+            "node": "[04] Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "master-combine-v1"
+}

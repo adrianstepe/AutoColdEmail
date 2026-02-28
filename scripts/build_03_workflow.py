@@ -205,7 +205,7 @@ const body = {
     ],
     generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 150
+        maxOutputTokens: 2048
     }
 };
 

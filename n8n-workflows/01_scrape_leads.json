@@ -1,5 +1,6 @@
 {
     "name": "01 — Scrape Leads from Google Maps",
+    "id": "NAQyd5sEAy9aA1K0",
     "nodes": [
         {
             "parameters": {},
@@ -27,7 +28,7 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "{\n  \"searchStringsArray\": [\"restaurants in Riga Latvia\"],\n  \"maxCrawledPlacesPerSearch\": 100,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
+                "jsonBody": "{\n  \"searchStringsArray\": [\"beauty salon Riga Latvia\", \"nail salon Riga Latvia\"],\n  \"maxCrawledPlacesPerSearch\": 100,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
                 "options": {
                     "timeout": 180000
                 }

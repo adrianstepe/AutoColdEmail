@@ -46,6 +46,7 @@ const body = {
   ],
   generationConfig: {
     temperature: 0.7,
+    maxOutputTokens: 4096,
     response_mime_type: "application/json"
   }
 };
