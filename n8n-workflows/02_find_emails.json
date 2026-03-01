@@ -146,56 +146,17 @@
     },
     {
       "parameters": {
-        "method": "GET",
-        "url": "={{ $json.website.replace(/\\/$/, '') }}/contact",
-        "options": {
-          "timeout": 15000,
-          "redirect": {
-            "redirect": {
-              "followRedirects": true,
-              "maxRedirects": 3
-            }
-          }
-        }
+        "jsCode": "// Multi-path fallback: try homepage + common Latvian contact pages to find email\n// Tries each URL in order, stops at first email found\n\nconst https = require('https');\nconst http = require('http');\n\nconst prevData = {\n  name: $input.item.json.name,\n  website: $input.item.json.website,\n  address: $input.item.json.address,\n  rating: $input.item.json.rating,\n  phone: $input.item.json.phone,\n  domain: $input.item.json.domain\n};\n\nconst baseUrl = (prevData.website || '').replace(/\\/$/, '');\nconst domain = prevData.domain || '';\n\n// Pages to try, in priority order (homepage first — footer usually has email)\nconst paths = ['', '/kontakti', '/lv/kontakti', '/kontakts', '/contact', '/contacts', '/par-mums'];\n\nconst emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n\nfunction fetchPage(url) {\n  return new Promise((resolve) => {\n    const mod = url.startsWith('https') ? https : http;\n    const req = mod.get(url, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false }, (res) => {\n      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {\n        const redir = res.headers.location.startsWith('http') ? res.headers.location : baseUrl + res.headers.location;\n        res.resume();\n        return fetchPage(redir).then(resolve);\n      }\n      let data = '';\n      res.on('data', (c) => data += c);\n      res.on('end', () => resolve(res.statusCode === 200 ? data : ''));\n    });\n    req.on('error', () => resolve(''));\n    req.on('timeout', () => { req.destroy(); resolve(''); });\n  });\n}\n\nfunction extractEmails(html) {\n  const matches = html.match(emailRegex) || [];\n  return [...new Set(matches)].filter(e =>\n    !e.includes('example.com') &&\n    !e.includes('sentry.io') &&\n    !e.includes('wixpress') &&\n    !e.includes('schema.org') &&\n    !e.includes('.png') &&\n    !e.includes('.jpg') &&\n    !e.includes('.svg') &&\n    !e.includes('@2x') &&\n    !e.includes('webpack')\n  );\n}\n\nfor (const p of paths) {\n  const url = baseUrl + p;\n  const html = await fetchPage(url);\n  if (!html) continue;\n\n  const emails = extractEmails(html);\n  if (emails.length === 0) continue;\n\n  // Prefer emails matching the site's own domain\n  const domainEmails = emails.filter(e => e.endsWith('@' + domain) || e.includes(domain.split('.')[0]));\n  const bestEmail = domainEmails.length > 0 ? domainEmails[0] : emails[0];\n\n  return [{\n    json: {\n      ...prevData,\n      email: bestEmail,\n      email_source: 'scrape_' + (p || 'homepage').replace('/', ''),\n      email_confidence: domainEmails.length > 0 ? 60 : 40,\n      status: 'email_found'\n    }\n  }];\n}\n\n// No email found on any page\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
       },
       "id": "b1b2c3d4-0002-4000-8000-000000000008",
-      "name": "Scrape Contact Page",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "name": "Scrape Contact Pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1680,
         520
       ],
-      "onError": "continueErrorOutput",
-      "notes": "Fallback: if Hunter.io found no email, try fetching the /contact page directly to scrape for email addresses."
-    },
-    {
-      "parameters": {
-        "jsCode": "// Fallback: extract email from the /contact page HTML\n// Uses a simple regex to find email addresses in the page source\n\nconst item = $input.item;\nconst html = typeof item.json === 'string' ? item.json : (item.json.data || item.json.body || JSON.stringify(item.json));\n\nconst prevData = {\n  name: $('Email Found?').item.json.name,\n  website: $('Email Found?').item.json.website,\n  address: $('Email Found?').item.json.address,\n  rating: $('Email Found?').item.json.rating,\n  phone: $('Email Found?').item.json.phone,\n  domain: $('Email Found?').item.json.domain\n};\n\n// Regex to find email addresses in HTML\nconst emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g;\nconst matches = html.match(emailRegex) || [];\n\n// Filter out common false positives\nconst filtered = matches.filter(e => \n  !e.includes('example.com') && \n  !e.includes('sentry.io') && \n  !e.includes('wixpress') &&\n  !e.includes('schema.org') &&\n  !e.includes('.png') &&\n  !e.includes('.jpg')\n);\n\nif (filtered.length > 0) {\n  return [{\n    json: {\n      ...prevData,\n      email: filtered[0],\n      email_source: 'contact_page',\n      email_confidence: 50,\n      status: 'email_found'\n    }\n  }];\n}\n\n// No email found anywhere — mark as no_email\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
-      },
-      "id": "b1b2c3d4-0002-4000-8000-000000000009",
-      "name": "Extract Email from HTML",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1920,
-        520
-      ],
-      "notes": "Regex-scrapes email addresses from the /contact page HTML. Filters out false positives (tracking pixels, schemas). If found → email_found. If not → no_email."
-    },
-    {
-      "parameters": {
-        "jsCode": "// Contact page fetch failed — mark lead as no_email\n\nconst prevData = {\n  name: $('Email Found?').item.json.name,\n  website: $('Email Found?').item.json.website,\n  address: $('Email Found?').item.json.address,\n  rating: $('Email Found?').item.json.rating,\n  phone: $('Email Found?').item.json.phone,\n  domain: $('Email Found?').item.json.domain\n};\n\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
-      },
-      "id": "b1b2c3d4-0002-4000-8000-000000000010",
-      "name": "Contact Page Failed",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1920,
-        720
-      ],
-      "notes": "Contact page returned an error (404, timeout, etc). Mark lead as no_email."
+      "notes": "Multi-path fallback: tries homepage + 6 common Latvian contact page paths. Extracts emails via regex, prefers domain-matching emails. Stops at first hit."
     },
     {
       "parameters": {
@@ -386,7 +347,7 @@
         ],
         [
           {
-            "node": "Scrape Contact Page",
+            "node": "Scrape Contact Pages",
             "type": "main",
             "index": 0
           }
@@ -404,36 +365,7 @@
         ]
       ]
     },
-    "Scrape Contact Page": {
-      "main": [
-        [
-          {
-            "node": "Extract Email from HTML",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Contact Page Failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Extract Email from HTML": {
-      "main": [
-        [
-          {
-            "node": "Update Google Sheet",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Contact Page Failed": {
+    "Scrape Contact Pages": {
       "main": [
         [
           {

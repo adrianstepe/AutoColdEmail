@@ -20,7 +20,7 @@ const industry = '' || 'uzņēmums'; // Default fallback
 const specific_problem = lead.specific_problem || '';
 const website_url = lead.website || '';
 const sender_name = 'Adrians';
-const sender_email = 'adrians@auto-cold-email.lv';
+const sender_email = 'adrians.stepe@gmail.com';
 
 // Create the JSON payload string for Gemini to parse
 const leadData = {

@@ -108,21 +108,6 @@ Full Latvian B2B cold email system prompt (~250 lines). Includes:
 - Full example, blacklisted phrases, industry vocabulary
 - Pre-output verification checklist
 
----
-
-## Environment Variables Required
-```
-APIFY_API_KEY=
-HUNTER_API_KEY=
-SCREENSHOTONE_API_KEY=
-OPENAI_API_KEY=
-GMAIL_CLIENT_ID=
-GMAIL_CLIENT_SECRET=
-GMAIL_REFRESH_TOKEN=
-SUPABASE_URL=          # optional, for logging
-SUPABASE_KEY=          # optional, for logging
-GOOGLE_SHEET_ID=       # optional, for logging
-```
 
 ---
 

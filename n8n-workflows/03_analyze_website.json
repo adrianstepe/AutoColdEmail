@@ -271,7 +271,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconst result = $input.item.json;\nlet analysis = '';\n\ntry {\n  analysis = result.choices[0].message.content.trim();\n} catch (e) {\n  return [{\n    json: {\n      ...lead,\n      status: 'analysis_failed',\n      specific_problem: ''\n    }\n  }];\n}\n\nif (!analysis || analysis.toLowerCase().includes('no problem')) {\n  analysis = 'mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana';\n}\n\nreturn [{\n  json: {\n    ...lead,\n    status: 'analyzed',\n    specific_problem: analysis\n  }\n}];"
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconst result = $input.item.json;\nlet analysis = '';\n\ntry {\n  analysis = result.choices[0].message.content.trim();\n} catch (e) {\n  return [{\n    json: {\n      ...lead,\n      status: 'analysis_failed',\n      specific_problem: ''\n    }\n  }];\n}\n\n// If the vision model returned SKIP, the site already has a real booking system — discard lead\nif (analysis.toUpperCase() === 'SKIP') {\n  return [{\n    json: {\n      ...lead,\n      status: 'no_problem_found',\n      specific_problem: ''\n    }\n  }];\n}\n\nif (!analysis || analysis.toLowerCase().includes('no problem')) {\n  analysis = 'mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana';\n}\n\nreturn [{\n  json: {\n    ...lead,\n    status: 'analyzed',\n    specific_problem: analysis\n  }\n}];"
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000013",
       "name": "Extract Result",
@@ -344,7 +344,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nlet analyzed = 0, dead = 0, screenshot_fail = 0, analysis_fail = 0;\n\nfor (const item of items) {\n  const status = item.json.status;\n  if (status === 'analyzed') analyzed++;\n  else if (status === 'dead_site') dead++;\n  else if (status === 'screenshot_failed') screenshot_fail++;\n  else if (status === 'analysis_failed') analysis_fail++;\n}\n\nreturn [{\n  json: {\n    message: '✅ Website Analysis complete.',\n    analyzed,\n    dead_sites: dead,\n    screenshot_failures: screenshot_fail,\n    analysis_failures: analysis_fail,\n    total: items.length\n  }\n}];"
+        "jsCode": "const items = $input.all();\nlet analyzed = 0, dead = 0, screenshot_fail = 0, analysis_fail = 0, skipped = 0;\n\nfor (const item of items) {\n  const status = item.json.status;\n  if (status === 'analyzed') analyzed++;\n  else if (status === 'no_problem_found') skipped++;\n  else if (status === 'dead_site') dead++;\n  else if (status === 'screenshot_failed') screenshot_fail++;\n  else if (status === 'analysis_failed') analysis_fail++;\n}\n\nreturn [{\n  json: {\n    message: '✅ Website Analysis complete.',\n    analyzed,\n    skipped_has_booking: skipped,\n    dead_sites: dead,\n    screenshot_failures: screenshot_fail,\n    analysis_failures: analysis_fail,\n    total: items.length\n  }\n}];"
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000015",
       "name": "Summary",

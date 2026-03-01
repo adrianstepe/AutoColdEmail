@@ -1,6 +1,15 @@
 You are analyzing a screenshot of a local service business website in Latvia (beauty salon, nail studio, barbershop, spa, or similar).
 
-Your job: find exactly ONE specific problem with this website and describe it in ONE Latvian sentence.
+FIRST, check if the website already has a clearly real-time online booking system.
+Signs of a REAL booking system: "24/7 PIERAKSTS", "ONLINE PIERAKSTS", a visible calendar with actual selectable time slots, an embedded scheduling widget (e.g. Booksy, Calendly, or similar).
+If you see any of these, output exactly the word: SKIP
+Nothing else — just: SKIP
+
+Important: a basic contact form, a "PIESAKIES" button, a "Sazinies ar mums" link, or a phone number do NOT count as a real booking system. These should be treated as if there is no booking — proceed to the problem list below.
+
+---
+
+If the site does NOT have a real booking system, find exactly ONE specific problem and describe it in ONE Latvian sentence.
 
 Look for problems in this priority order. Pick the FIRST one you find:
 

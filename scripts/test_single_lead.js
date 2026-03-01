@@ -18,6 +18,7 @@ const path = require("path");
 // --- Config ---
 const SCREENSHOTONE_API_KEY = process.env.SCREENSHOTONE_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const SAVE_SCREENSHOT = process.argv.includes('--save-screenshot');
 
 // --- Helpers ---
 
@@ -115,6 +116,16 @@ async function takeScreenshot(websiteUrl) {
     const base64Image = imageBuffer.toString("base64");
 
     console.log(`   ✅ Screenshot captured (${Math.round(imageBuffer.length / 1024)} KB)`);
+
+    if (SAVE_SCREENSHOT) {
+        const screenshotDir = path.join(__dirname, "..", "screenshots");
+        if (!fs.existsSync(screenshotDir)) fs.mkdirSync(screenshotDir, { recursive: true });
+        const safeName = websiteUrl.replace(/https?:\/\//, '').replace(/[^a-zA-Z0-9.-]/g, '_');
+        const savePath = path.join(screenshotDir, `debug_${safeName}.png`);
+        fs.writeFileSync(savePath, imageBuffer);
+        console.log(`   💾 Screenshot saved: ${savePath}`);
+    }
+
     return base64Image;
 }
 
@@ -188,7 +199,7 @@ async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
         specific_problem: websiteProblem,
         website_url: websiteUrl,
         sender_name: "Adrians",
-        sender_email: "adrians@auto-cold-email.lv"
+        sender_email: "adrians.stepe@gmail.com"
     };
 
     const prompt = basePrompt + "\n\n---\n\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\n" + JSON.stringify(leadData);

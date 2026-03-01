@@ -16,7 +16,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/runs?token={{$env.APIFY_API_KEY}}&waitForFinish=120",
+                "url": "=https://api.apify.com/v2/acts/compass~crawler-google-places/runs?token={{$env.APIFY_API_KEY}}&waitForFinish=120",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
@@ -28,7 +28,7 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "{\n  \"searchStringsArray\": [\"skaistumkopšanas salons Rīga\"],\n  \"maxCrawledPlacesPerSearch\": 10,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
+                "jsonBody": "{\n  \"searchStringsArray\": [\"skaistumkopšanas salons Rīga\", \"nagu studija Rīga\", \"frizētava Rīga\"],\n  \"maxCrawledPlacesPerSearch\": 15,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
                 "options": {
                     "timeout": 180000
                 }
@@ -120,11 +120,12 @@
                     "conditions": [
                         {
                             "id": "condition-has-website",
-                            "leftValue": "={{ $json.website }}",
-                            "rightValue": "",
+                            "leftValue": "={{ !!$json.website }}",
+                            "rightValue": "={{ true }}",
                             "operator": {
-                                "type": "string",
-                                "operation": "isNotEmpty"
+                                "type": "boolean",
+                                "operation": "true",
+                                "name": "isTrue"
                             }
                         }
                     ],
@@ -155,54 +156,10 @@
                     "value": "Leads"
                 },
                 "columns": {
-                    "mappingMode": "defineBelow",
-                    "value": {
-                        "name": "={{ $json.name }}",
-                        "website": "={{ $json.website }}",
-                        "address": "={{ $json.address }}",
-                        "rating": "={{ $json.rating }}",
-                        "phone": "={{ $json.phone }}",
-                        "status": "={{ $json.status }}"
-                    },
+                    "mappingMode": "autoMapInputData",
+                    "value": {},
                     "matchingColumns": [],
-                    "schema": [
-                        {
-                            "id": "name",
-                            "displayName": "name",
-                            "required": false,
-                            "defaultMatch": false
-                        },
-                        {
-                            "id": "website",
-                            "displayName": "website",
-                            "required": false,
-                            "defaultMatch": false
-                        },
-                        {
-                            "id": "address",
-                            "displayName": "address",
-                            "required": false,
-                            "defaultMatch": false
-                        },
-                        {
-                            "id": "rating",
-                            "displayName": "rating",
-                            "required": false,
-                            "defaultMatch": false
-                        },
-                        {
-                            "id": "phone",
-                            "displayName": "phone",
-                            "required": false,
-                            "defaultMatch": false
-                        },
-                        {
-                            "id": "status",
-                            "displayName": "status",
-                            "required": false,
-                            "defaultMatch": false
-                        }
-                    ]
+                    "schema": []
                 },
                 "options": {}
             },

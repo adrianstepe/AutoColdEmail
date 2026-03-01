@@ -1,13 +1,49 @@
-# 🚀 5-Lead End-to-End Pipeline Test
+# 🚀 3-Lead End-to-End Pipeline Test (OpenAI gpt-4o-mini)
 
-This report simulates the full n8n pipeline for 5 local beauty salons in Riga.
+**Date:** 2026-03-01T20:25:30.698Z
 
-## KOLONNA Skaistumkopšanas salons
-**Website:** [https://kolonna.com](https://kolonna.com)
-**Found Email (Hunter.io):** `sigita.spinga@kolonna.com` (Type: personal, Confidence: 99%)
+This report simulates the full n8n pipeline for 3 local beauty salons in Riga.
+
+## Kolibri Skaistumkopšana
+**Website:** [https://kolibri.lv](https://kolibri.lv)
+**Found Email:** `info@supfit.lv` (Source: scrape_homepage, Type: scraped, Confidence: 40%)
 
 ### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)
 ![Screenshot](/home/as/Desktop/Antigravity/AutoColdEmail/screenshots/screenshot_0.png)
+
+> **Identified Problem:** *mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana*
+
+### ✉️ Generated Cold Email
+**Subject:** Jautājums par Kolibri Skaistumkopšana mājaslapu
+
+**To:** info@supfit.lv
+
+```text
+Labdien,
+
+Izskatot Jūsu mājaslapu kolibri.lv, pamanīju, ka tajā šobrīd nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var novest pie klientu zaudēšanas.
+
+Es specializējos tieši skaistumkopšanas un nagu salonu pierakstu sistēmu izveidē Rīgā.
+
+Nesen palīdzēju Rīgas naglu salonam ieviest tiešsaistes pierakstu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt.
+
+Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?
+
+Ja nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.
+
+Ar cieņu,
+Adrians
+adrians.stepe@gmail.com
+```
+
+---
+
+## KOLONNA Skaistumkopšanas salons
+**Website:** [https://kolonna.com](https://kolonna.com)
+**Found Email:** `sigita.spinga@kolonna.com` (Source: hunter, Type: personal, Confidence: 99%)
+
+### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)
+![Screenshot](/home/as/Desktop/Antigravity/AutoColdEmail/screenshots/screenshot_1.png)
 
 > **Identified Problem:** *mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana*
 
@@ -19,11 +55,11 @@ This report simulates the full n8n pipeline for 5 local beauty salons in Riga.
 ```text
 Labdien,
 
-Izskatot Jūsu mājaslapu kolonna.com, pamanīju, ka tajā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var novest pie zaudētiem klientiem.
+Izskatot Jūsu mājaslapu kolonna.com, pamanīju, ka tajā šobrīd nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var novest pie potenciālo klientu zaudēšanas.
 
 Es specializējos tieši skaistumkopšanas un nagu salonu pierakstu sistēmu izveidē Rīgā.
 
-Nesen palīdzēju līdzīgam Rīgas salonam ieviest tiešsaistes pierakstu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt.
+Nesen palīdzēju Rīgas naglu salonam ieviest tiešsaistes pierakstu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt.
 
 Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?
 
@@ -31,48 +67,14 @@ Ja nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.
 
 Ar cieņu,
 Adrians
-adrians@auto-cold-email.lv
+adrians.stepe@gmail.com
 ```
 
 ---
 
 ## Prior skaistumkopšanas salons
 **Website:** [https://prior.lv](https://prior.lv)
-**Found Email (Hunter.io):** `Not found` (Type: N/A, Confidence: 0%)
-
-### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)
-![Screenshot](/home/as/Desktop/Antigravity/AutoColdEmail/screenshots/screenshot_1.png)
-
-> **Identified Problem:** *mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana*
-
-### ✉️ Generated Cold Email
-**Subject:** Jautājums par Prior skaistumkopšanas salons mājaslapu
-
-**To:** NO_VALID_EMAIL
-
-```text
-Labdien,
-
-Izskatot Jūsu mājaslapu prior.lv, pamanīju, ka tajā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var radīt zaudējumus.
-
-Es specializējos tieši skaistumkopšanas un nagu salonu pierakstu sistēmu izveidē Rīgā.
-
-Nesen palīdzēju līdzīgam Rīgas salonam ieviest tiešsaistes pierakstu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt.
-
-Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?
-
-Ja nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.
-
-Ar cieņu,
-Adrians
-adrians@auto-cold-email.lv
-```
-
----
-
-## Salons Maija
-**Website:** [https://maija.lv](https://maija.lv)
-**Found Email (Hunter.io):** `martas7@maija.lv` (Type: personal, Confidence: 88%)
+**Found Email:** `info@alterologistic.hk` (Source: scrape_homepage, Type: scraped, Confidence: 40%)
 
 ### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)
 ![Screenshot](/home/as/Desktop/Antigravity/AutoColdEmail/screenshots/screenshot_2.png)
@@ -80,18 +82,18 @@ adrians@auto-cold-email.lv
 > **Identified Problem:** *mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana*
 
 ### ✉️ Generated Cold Email
-**Subject:** Jautājums par Salons Maija mājaslapu
+**Subject:** Jautājums par Prior skaistumkopšanas salons mājaslapu
 
-**To:** martas7@maija.lv
+**To:** info@alterologistic.hk
 
 ```text
 Labdien,
 
-Izskatot Jūsu mājaslapu maija.lv, pamanīju, ka tajā šobrīd nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var novest pie zaudētiem klientiem.
+Izskatot Jūsu mājaslapu prior.lv, pamanīju, ka tajā šobrīd nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas varētu novest pie zaudētiem klientiem.
 
 Es specializējos tieši skaistumkopšanas un nagu salonu pierakstu sistēmu izveidē Rīgā.
 
-Nesen palīdzēju līdzīgam Rīgas salonam ieviest šo risinājumu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt.
+Nesen palīdzēju Rīgas naglu salonam ieviest tiešsaistes pierakstu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt.
 
 Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?
 
@@ -99,75 +101,7 @@ Ja nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.
 
 Ar cieņu,
 Adrians
-adrians@auto-cold-email.lv
-```
-
----
-
-## Pam Pam skaistumkopšana
-**Website:** [https://pampam.lv](https://pampam.lv)
-**Found Email (Hunter.io):** `info@pampam.lv` (Type: generic, Confidence: 99%)
-
-### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)
-![Screenshot](/home/as/Desktop/Antigravity/AutoColdEmail/screenshots/screenshot_3.png)
-
-> **Identified Problem:** *mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana*
-
-### ✉️ Generated Cold Email
-**Subject:** Jautājums par Pam Pam skaistumkopšana mājaslapu
-
-**To:** info@pampam.lv
-
-```text
-Labdien,
-
-Izskatot Jūsu mājaslapu pampam.lv, pamanīju, ka tajā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var novest pie zaudētiem klientiem.
-
-Es specializējos tieši skaistumkopšanas salonu pierakstu sistēmu izveidē Rīgā, nodrošinot, ka klienti var ērti rezervēt vizītes tiešsaistē.
-
-Nesen palīdzēju līdzīgam salonam ieviest šo risinājumu, un viņi vairs nezaudē klientus, kuri negrib zvanīt.
-
-Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?
-
-Ja nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.
-
-Ar cieņu,
-Adrians
-adrians@auto-cold-email.lv
-```
-
----
-
-## Mella matu pieaudzēšana
-**Website:** [https://mella.lv](https://mella.lv)
-**Found Email (Hunter.io):** `info@mella.lv` (Type: generic, Confidence: 81%)
-
-### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)
-![Screenshot](/home/as/Desktop/Antigravity/AutoColdEmail/screenshots/screenshot_4.png)
-
-> **Identified Problem:** *mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana*
-
-### ✉️ Generated Cold Email
-**Subject:** Jautājums par Mella matu pieaudzēšana mājaslapu
-
-**To:** info@mella.lv
-
-```text
-Labdien,
-
-Izskatot Jūsu mājaslapu mella.lv, pamanīju, ka tajā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana, kas var novest pie zaudētiem klientiem.
-
-Es specializējos tieši skaistumkopšanas salonu pieraksta sistēmu izveidē Rīgā, nodrošinot ērtu risinājumu klientiem.
-
-Nesen palīdzēju līdzīgam Rīgas salonam ieviest šo risinājumu, un tas būtiski uzlabojis viņu klientu apkalpošanu.
-
-Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?
-
-Ja nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.
-
-Ar cieņu,
-Adrians
-adrians@auto-cold-email.lv
+adrians.stepe@gmail.com
 ```
 
 ---

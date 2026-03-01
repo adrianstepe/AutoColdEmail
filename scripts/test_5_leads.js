@@ -1,5 +1,6 @@
 require("dotenv").config();
 const https = require("https");
+const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
@@ -11,11 +12,9 @@ const PROJECT_DIR = path.join(__dirname, "..");
 const SCREENSHOT_DIR = path.join(PROJECT_DIR, "screenshots");
 
 const leads = [
+    { name: "Kolibri Skaistumkopšana", website: "https://kolibri.lv" },
     { name: "KOLONNA Skaistumkopšanas salons", website: "https://kolonna.com" },
-    { name: "Prior skaistumkopšanas salons", website: "https://prior.lv" },
-    { name: "Salons Maija", website: "https://maija.lv" },
-    { name: "Pam Pam skaistumkopšana", website: "https://pampam.lv" },
-    { name: "Mella matu pieaudzēšana", website: "https://mella.lv" }
+    { name: "Prior skaistumkopšanas salons", website: "https://prior.lv" }
 ];
 
 function httpsGetBuffer(url) {
@@ -68,20 +67,77 @@ function httpsPostJSON(url, body, additionalHeaders = {}) {
 }
 
 async function findEmail(websiteUrl) {
-    const domain = new URL(websiteUrl).hostname.replace(/^www\\./, '');
+    const domain = new URL(websiteUrl).hostname.replace(/^www\./, '');
     const url = `https://api.hunter.io/v2/domain-search?domain=${domain}&api_key=${HUNTER_API_KEY}`;
     const res = await httpsGetJSON(url);
     const emails = res?.data?.emails || [];
-    if (emails.length === 0) return { email: "Not found", type: "N/A", confidence: 0 };
 
-    emails.sort((a, b) => {
-        if (a.type === 'personal' && b.type !== 'personal') return -1;
-        if (a.type !== 'personal' && b.type === 'personal') return 1;
-        return (b.confidence || 0) - (a.confidence || 0);
-    });
+    if (emails.length > 0) {
+        emails.sort((a, b) => {
+            if (a.type === 'personal' && b.type !== 'personal') return -1;
+            if (a.type !== 'personal' && b.type === 'personal') return 1;
+            return (b.confidence || 0) - (a.confidence || 0);
+        });
+        return { email: emails[0].value, type: emails[0].type, confidence: emails[0].confidence, source: "hunter" };
+    }
 
-    return { email: emails[0].value, type: emails[0].type, confidence: emails[0].confidence };
+    // Hunter found nothing — try multi-path scraper fallback
+    console.log(`  - Hunter.io found nothing, trying page scraper fallback...`);
+    return await scrapeEmailFromPages(websiteUrl, domain);
 }
+
+/**
+ * Multi-path fallback: tries homepage + common Latvian contact pages to find email.
+ * Prefers emails matching the site's own domain over partner/vendor emails.
+ */
+async function scrapeEmailFromPages(websiteUrl, domain) {
+    const baseUrl = websiteUrl.replace(/\/$/, '');
+    const paths = ['', '/kontakti', '/lv/kontakti', '/kontakts', '/contact', '/contacts', '/par-mums'];
+    const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+
+    function fetchPage(url) {
+        return new Promise((resolve) => {
+            const mod = url.startsWith("https") ? https : http;
+            const req = mod.get(url, { timeout: 8000, headers: { "User-Agent": "Mozilla/5.0" }, rejectUnauthorized: false }, (res) => {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                    const redir = res.headers.location.startsWith("http") ? res.headers.location : baseUrl + res.headers.location;
+                    res.resume();
+                    return fetchPage(redir).then(resolve);
+                }
+                let data = "";
+                res.on("data", (c) => data += c);
+                res.on("end", () => resolve(res.statusCode === 200 ? data : ""));
+            });
+            req.on("error", () => resolve(""));
+            req.on("timeout", () => { req.destroy(); resolve(""); });
+        });
+    }
+
+    for (const p of paths) {
+        const url = baseUrl + p;
+        const html = await fetchPage(url);
+        if (!html) continue;
+
+        const matches = html.match(emailRegex) || [];
+        const filtered = [...new Set(matches)].filter(e =>
+            !e.includes("example.com") && !e.includes("sentry.io") &&
+            !e.includes("wixpress") && !e.includes("schema.org") &&
+            !e.includes(".png") && !e.includes(".jpg") && !e.includes(".svg") &&
+            !e.includes("@2x") && !e.includes("webpack")
+        );
+        if (filtered.length === 0) continue;
+
+        const domainEmails = filtered.filter(e => e.endsWith("@" + domain) || e.includes(domain.split(".")[0]));
+        const best = domainEmails.length > 0 ? domainEmails[0] : filtered[0];
+        const src = (p || "homepage").replace("/", "");
+        const conf = domainEmails.length > 0 ? 60 : 40;
+        console.log(`  - Fallback found email on ${src}: ${best}`);
+        return { email: best, type: "scraped", confidence: conf, source: "scrape_" + src };
+    }
+
+    return { email: "Not found", type: "N/A", confidence: 0, source: "none" };
+}
+
 
 async function takeScreenshot(websiteUrl, index) {
     const url = `https://api.screenshotone.com/take?access_key=${SCREENSHOTONE_API_KEY}&url=${encodeURIComponent(websiteUrl)}&viewport_width=1280&viewport_height=900&format=png&block_ads=true`;
@@ -126,7 +182,7 @@ async function generateEmail(lead, problem) {
 
     const leadData = {
         business_name: lead.name, owner_name: "", city: "Rīga", industry: "skaistumkopšanas salons",
-        specific_problem: problem, website_url: lead.website, sender_name: "Adrians", sender_email: "adrians@auto-cold-email.lv"
+        specific_problem: problem, website_url: lead.website, sender_name: "Adrians", sender_email: "adrians.stepe@gmail.com"
     };
 
     const prompt = basePrompt + "\n---\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\n" + JSON.stringify(leadData);
@@ -153,8 +209,9 @@ async function generateEmail(lead, problem) {
 }
 
 async function main() {
-    let md = "# 🚀 5-Lead End-to-End Pipeline Test\n\n";
-    md += "This report simulates the full n8n pipeline for 5 local beauty salons in Riga.\n\n";
+    let md = "# 🚀 3-Lead End-to-End Pipeline Test (OpenAI gpt-4o-mini)\n\n";
+    md += `**Date:** ${new Date().toISOString()}\n\n`;
+    md += "This report simulates the full n8n pipeline for 3 local beauty salons in Riga.\n\n";
 
     for (let i = 0; i < leads.length; i++) {
         const lead = leads[i];
@@ -174,7 +231,7 @@ async function main() {
 
         md += `## ${lead.name}\n`;
         md += `**Website:** [${lead.website}](${lead.website})\n`;
-        md += `**Found Email (Hunter.io):** \`${hunter.email}\` (Type: ${hunter.type}, Confidence: ${hunter.confidence}%)\n\n`;
+        md += `**Found Email:** \`${hunter.email}\` (Source: ${hunter.source || 'N/A'}, Type: ${hunter.type}, Confidence: ${hunter.confidence}%)\n\n`;
         md += `### 📸 Website Analysis (ScreenshotOne + OpenAI Vision)\n`;
         md += `![Screenshot](${shot.localPath})\n\n`;
         md += `> **Identified Problem:** *${problem}*\n\n`;
