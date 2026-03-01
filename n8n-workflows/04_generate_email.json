@@ -38,7 +38,7 @@
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "XU9BVy1MqW6lCLNl",
           "name": "Google Sheets account"
         }
       }
@@ -79,7 +79,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={{$env.GEMINI_API_KEY}}",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={{$env.GEMINI_API_KEY}}",
         "sendBody": true,
         "contentType": "raw",
         "rawBody": "={{ JSON.stringify($json.gemini_body) }}",
@@ -156,6 +156,10 @@
             {
               "column": "status",
               "value": "={{ $json.status }}"
+            },
+            {
+              "column": "approved",
+              "value": "pending"
             }
           ]
         },
@@ -171,7 +175,7 @@
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "id": "XU9BVy1MqW6lCLNl",
           "name": "Google Sheets account"
         }
       }

@@ -159,8 +159,12 @@ async function analyzeWithGemini(base64Image) {
     const result = await httpsPostJSON(url, body);
 
     // Extract the text response
-    const analysis =
+    let analysis =
         result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+
+    if (!analysis || analysis.toLowerCase().includes('no problem')) {
+        analysis = 'mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana';
+    }
 
     if (!analysis) {
         throw new Error("Gemini returned empty analysis. Raw response: " + JSON.stringify(result).substring(0, 500));

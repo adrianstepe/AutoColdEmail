@@ -28,7 +28,7 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "{\n  \"searchStringsArray\": [\"beauty salon Riga Latvia\", \"nail salon Riga Latvia\"],\n  \"maxCrawledPlacesPerSearch\": 100,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
+                "jsonBody": "{\n  \"searchStringsArray\": [\"skaistumkopšanas salons Rīga\"],\n  \"maxCrawledPlacesPerSearch\": 10,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
                 "options": {
                     "timeout": 180000
                 }
@@ -216,7 +216,7 @@
             ],
             "credentials": {
                 "googleSheetsOAuth2Api": {
-                    "id": "REPLACE_WITH_CREDENTIAL_ID",
+                    "id": "XU9BVy1MqW6lCLNl",
                     "name": "Google Sheets OAuth2"
                 }
             },

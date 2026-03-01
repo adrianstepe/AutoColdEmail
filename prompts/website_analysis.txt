@@ -1,26 +1,19 @@
-You are analyzing a screenshot of a local business website (restaurant, cafe, salon, dental clinic, gym, or retail shop) in Latvia.
+You are analyzing a screenshot of a beauty salon or nail studio website in Latvia.
 
-Identify exactly ONE specific, concrete problem visible in this screenshot that would hurt their business. Choose from:
-- No online booking / reservation button
-- Menu or service list is a PDF that doesn't work on mobile
-- No mobile-friendly layout (broken on small screens)
-- No visible contact information
-- No opening hours displayed
-- Low-quality or blurry photos
-- No Google Maps link on the contact page
-- No clear call to action on the homepage
-- Outdated or broken design elements
+Your PRIMARY task is to check: does this website have a visible online booking button or booking system where clients can book an appointment directly?
 
-Respond in ONE sentence only, in Latvian. Start with lowercase. Be specific, as if pointing it out to the business owner.
+If there is NO visible booking button or online booking system → output exactly:
+"mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana"
 
-Example outputs:
-- "mājaslapā nav tiešsaistes galda rezervācijas iespējas"
-- "izvēlne ir tikai PDF formātā, ko nevar atvērt mobilajā telefonā"
-- "mājaslapā nav norādīti darba laiki"
-- "fotogrāfijas ir neskaidras un zemas kvalitātes"
-- "nav Google Maps saites kontaktu lapā"
-- "mājaslapa netiek atvērta mobilajā ierīcē — izkārtojums ir salūzis"
-- "nav tiešsaistes pieraksta iespējas pakalpojumiem"
-- "kontaktinformācija nav redzama galvenajā lapā"
+If there IS a booking system, look for the next most visible problem from this list:
+- Menu or service list is missing or hard to find
+- No prices listed
+- No opening hours visible
+- No mobile-friendly layout
+- No clear contact information
+- Low quality or no photos of work
+- No Google Maps link
 
-Do not explain. Do not add anything else. One Latvian sentence only.
+Always output ONE sentence in Latvian starting with lowercase. Never output "No problem found". If the site looks perfect, still output the booking sentence above — every salon can benefit from better booking.
+
+One Latvian sentence only. No explanation.
