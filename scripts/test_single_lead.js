@@ -17,7 +17,7 @@ const path = require("path");
 
 // --- Config ---
 const SCREENSHOTONE_API_KEY = process.env.SCREENSHOTONE_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // --- Helpers ---
 
@@ -45,7 +45,7 @@ function httpsGetBuffer(url) {
 /**
  * Make an HTTPS POST request with JSON body and return parsed JSON response
  */
-function httpsPostJSON(url, body) {
+function httpsPostJSON(url, body, additionalHeaders = {}) {
     return new Promise((resolve, reject) => {
         const parsed = new URL(url);
         const data = JSON.stringify(body);
@@ -57,6 +57,7 @@ function httpsPostJSON(url, body) {
             headers: {
                 "Content-Type": "application/json",
                 "Content-Length": Buffer.byteLength(data),
+                ...additionalHeaders
             },
         };
 
@@ -118,56 +119,49 @@ async function takeScreenshot(websiteUrl) {
 }
 
 /**
- * Step 2: Analyze the screenshot with Gemini Vision
+ * Step 2: Analyze the screenshot with OpenAI Vision
  * Returns: one-sentence description of a specific website problem
  */
-async function analyzeWithGemini(base64Image) {
-    console.log("\n🔍 Step 2: Analyzing with Gemini...");
+async function analyzeWithOpenAI(base64Image) {
+    console.log("\n🔍 Step 2: Analyzing with OpenAI...");
 
-    if (!GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not set in .env");
+    if (!OPENAI_API_KEY) {
+        throw new Error("OPENAI_API_KEY is not set in .env");
     }
 
     // Load the prompt from file
     const promptPath = path.join(__dirname, "..", "prompts", "website_analysis.txt");
     const prompt = fs.readFileSync(promptPath, "utf-8").trim();
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://api.openai.com/v1/chat/completions`;
 
     const body = {
-        contents: [
+        model: "gpt-4o-mini",
+        messages: [
             {
-                parts: [
-                    {
-                        inline_data: {
-                            mime_type: "image/png",
-                            data: base64Image,
-                        },
-                    },
-                    {
-                        text: prompt,
-                    },
-                ],
-            },
+                role: "user",
+                content: [
+                    { type: "text", text: prompt },
+                    { type: "image_url", image_url: { url: `data:image/png;base64,${base64Image}` } }
+                ]
+            }
         ],
-        generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 2048,
-        },
+        temperature: 0.4,
+        max_tokens: 2048
     };
 
-    const result = await httpsPostJSON(url, body);
+    const headers = { "Authorization": `Bearer ${OPENAI_API_KEY}` };
+    const result = await httpsPostJSON(url, body, headers);
 
     // Extract the text response
-    let analysis =
-        result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    let analysis = result?.choices?.[0]?.message?.content?.trim() || "";
 
     if (!analysis || analysis.toLowerCase().includes('no problem')) {
         analysis = 'mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana';
     }
 
     if (!analysis) {
-        throw new Error("Gemini returned empty analysis. Raw response: " + JSON.stringify(result).substring(0, 500));
+        throw new Error("OpenAI returned empty analysis. Raw response: " + JSON.stringify(result).substring(0, 500));
     }
 
     console.log(`   ✅ Problem identified: "${analysis}"`);
@@ -175,7 +169,7 @@ async function analyzeWithGemini(base64Image) {
 }
 
 /**
- * Step 3: Generate a personalized cold email using Gemini
+ * Step 3: Generate a personalized cold email using OpenAI
  * Returns: { subject, body } — the email content
  */
 async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
@@ -185,7 +179,7 @@ async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
     const promptPath = path.join(__dirname, "..", "prompts", "email_generation.txt");
     const basePrompt = fs.readFileSync(promptPath, "utf-8").trim();
 
-    // Create the JSON payload string for Gemini to parse
+    // Create the JSON payload string
     const leadData = {
         business_name: restaurantName,
         owner_name: "", // Will use 'Labdien,' if empty based on prompt rules
@@ -199,31 +193,23 @@ async function generateEmail(restaurantName, websiteUrl, websiteProblem) {
 
     const prompt = basePrompt + "\n\n---\n\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\n" + JSON.stringify(leadData);
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://api.openai.com/v1/chat/completions`;
 
     const body = {
-        contents: [
-            {
-                parts: [
-                    {
-                        text: prompt,
-                    },
-                ],
-            },
-        ],
-        generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 4096
-        },
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+        max_tokens: 4096
     };
 
-    const result = await httpsPostJSON(url, body);
+    const headers = { "Authorization": `Bearer ${OPENAI_API_KEY}` };
+    const result = await httpsPostJSON(url, body, headers);
 
-    const emailContent =
-        result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    const emailContent = result?.choices?.[0]?.message?.content?.trim() || "";
 
     if (!emailContent) {
-        throw new Error("Gemini returned empty email. Raw response: " + JSON.stringify(result).substring(0, 500));
+        throw new Error("OpenAI returned empty email. Raw response: " + JSON.stringify(result).substring(0, 500));
     }
 
     console.log(`   ✅ Email generated`);
@@ -257,7 +243,7 @@ async function main() {
         const screenshot = await takeScreenshot(websiteUrl);
 
         // Step 2: Analyze
-        const websiteProblem = await analyzeWithGemini(screenshot);
+        const websiteProblem = await analyzeWithOpenAI(screenshot);
 
         // Step 3: Generate email
         const emailContent = await generateEmail(restaurantName, websiteUrl, websiteProblem);

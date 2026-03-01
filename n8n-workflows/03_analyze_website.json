@@ -1,5 +1,5 @@
 {
-  "name": "03 — Analyze Website (Gemini Vision)",
+  "name": "03 — Analyze Website (OpenAI Vision)",
   "nodes": [
     {
       "parameters": {},
@@ -183,10 +183,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\n// 1. Get Base64 image\n// HTTP node outputs either the raw string in data, or as entire response.\nconst base64Image = typeof $input.item.json === 'string' ? $input.item.json : ($input.item.json.data || $input.item.json.body || $input.item.json.base64);\n\n// 2. Load prompt\nconst workspaceDir = process.cwd();\nconst promptPath = path.join(workspaceDir, 'prompts', 'website_analysis.txt');\nconst prompt = fs.readFileSync(promptPath, 'utf8');\n\n// 3. Build body\nconst body = {\n    contents: [\n        {\n            parts: [\n                { inline_data: { mime_type: \"image/png\", data: base64Image } },\n                { text: prompt }\n            ]\n        }\n    ],\n    generationConfig: {\n        temperature: 0.4,\n        maxOutputTokens: 2048\n    }\n};\n\nreturn [{ json: body }];"
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\n// 1. Get Base64 image\nconst base64Image = typeof $input.item.json === 'string' ? $input.item.json : ($input.item.json.data || $input.item.json.body || $input.item.json.base64);\n\n// 2. Load prompt\nconst workspaceDir = process.cwd();\nconst promptPath = path.join(workspaceDir, 'prompts', 'website_analysis.txt');\nconst prompt = fs.readFileSync(promptPath, 'utf8');\n\n// 3. Build body\nconst body = {\n    model: \"gpt-4o-mini\",\n    messages: [\n        {\n            role: \"user\",\n            content: [\n                { type: \"text\", text: prompt },\n                { type: \"image_url\", image_url: { url: \"data:image/png;base64,\" + base64Image } }\n            ]\n        }\n    ],\n    temperature: 0.4,\n    max_tokens: 2048\n};\n\nreturn [{ json: body }];"
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000009",
-      "name": "Build Gemini Request",
+      "name": "Build OpenAI Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -197,17 +197,26 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={{$env.GEMINI_API_KEY}}",
+        "url": "https://api.openai.com/v1/chat/completions",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {
           "timeout": 60000,
           "bodyContentType": "json"
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.OPENAI_API_KEY}}"
+            }
+          ]
         }
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000010",
-      "name": "Gemini Vision",
+      "name": "OpenAI Vision",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
@@ -226,7 +235,7 @@
           },
           "conditions": [
             {
-              "id": "condition-gemini-error",
+              "id": "condition-openai-error",
               "leftValue": "={{ $json.error }}",
               "rightValue": "",
               "operator": {
@@ -239,7 +248,7 @@
         }
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000011",
-      "name": "Gemini Success?",
+      "name": "OpenAI Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -249,10 +258,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconsole.error(\"Gemini Vision error for \" + lead.website, $input.item.json);\nreturn [{\n  json: {\n    ...lead,\n    status: 'analysis_failed',\n    specific_problem: ''\n  }\n}];"
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconsole.error(\"OpenAI Vision error for \" + lead.website, $input.item.json);\nreturn [{\n  json: {\n    ...lead,\n    status: 'analysis_failed',\n    specific_problem: ''\n  }\n}];"
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000012",
-      "name": "Handle Gemini Error",
+      "name": "Handle OpenAI Error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -262,7 +271,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconst result = $input.item.json;\nlet analysis = '';\n\ntry {\n  analysis = result.candidates[0].content.parts[0].text.trim();\n} catch (e) {\n  return [{\n    json: {\n      ...lead,\n      status: 'analysis_failed',\n      specific_problem: ''\n    }\n  }];\n}\n\nif (!analysis || analysis.toLowerCase().includes('no problem')) {\n  analysis = 'mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana';\n}\n\nreturn [{\n  json: {\n    ...lead,\n    status: 'analyzed',\n    specific_problem: analysis\n  }\n}];"
+        "jsCode": "const lead = $('Read Leads (email_found)').item.json;\nconst result = $input.item.json;\nlet analysis = '';\n\ntry {\n  analysis = result.choices[0].message.content.trim();\n} catch (e) {\n  return [{\n    json: {\n      ...lead,\n      status: 'analysis_failed',\n      specific_problem: ''\n    }\n  }];\n}\n\nif (!analysis || analysis.toLowerCase().includes('no problem')) {\n  analysis = 'mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana';\n}\n\nreturn [{\n  json: {\n    ...lead,\n    status: 'analyzed',\n    specific_problem: analysis\n  }\n}];"
       },
       "id": "c1c2c3d4-0003-4000-8000-000000000013",
       "name": "Extract Result",
@@ -425,7 +434,7 @@
       "main": [
         [
           {
-            "node": "Build Gemini Request",
+            "node": "Build OpenAI Request",
             "type": "main",
             "index": 0
           }
@@ -450,29 +459,29 @@
         ]
       ]
     },
-    "Build Gemini Request": {
+    "Build OpenAI Request": {
       "main": [
         [
           {
-            "node": "Gemini Vision",
+            "node": "OpenAI Vision",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gemini Vision": {
+    "OpenAI Vision": {
       "main": [
         [
           {
-            "node": "Gemini Success?",
+            "node": "OpenAI Success?",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Gemini Success?": {
+    "OpenAI Success?": {
       "main": [
         [
           {
@@ -483,14 +492,14 @@
         ],
         [
           {
-            "node": "Handle Gemini Error",
+            "node": "Handle OpenAI Error",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Handle Gemini Error": {
+    "Handle OpenAI Error": {
       "main": [
         [
           {

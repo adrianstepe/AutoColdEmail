@@ -1,19 +1,30 @@
-You are analyzing a screenshot of a beauty salon or nail studio website in Latvia.
+You are analyzing a screenshot of a local service business website in Latvia (beauty salon, nail studio, barbershop, spa, or similar).
 
-Your PRIMARY task is to check: does this website have a visible online booking button or booking system where clients can book an appointment directly?
+Your job: find exactly ONE specific problem with this website and describe it in ONE Latvian sentence.
 
-If there is NO visible booking button or online booking system → output exactly:
-"mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana"
+Look for problems in this priority order. Pick the FIRST one you find:
 
-If there IS a booking system, look for the next most visible problem from this list:
-- Menu or service list is missing or hard to find
-- No prices listed
-- No opening hours visible
-- No mobile-friendly layout
-- No clear contact information
-- Low quality or no photos of work
-- No Google Maps link
+1. No visible online booking button or appointment system — clients cannot book without calling
+2. No service list or price list visible on the page
+3. No photos of completed work (nails, hair, treatments) or photos are low-quality/blurry
+4. Page layout is broken on desktop or looks like it would break on mobile
+5. No business hours or opening times shown
+6. No address, phone number, or contact info visible
+7. Design looks outdated (old fonts, misaligned elements, no modern styling)
+8. No social media links
 
-Always output ONE sentence in Latvian starting with lowercase. Never output "No problem found". If the site looks perfect, still output the booking sentence above — every salon can benefit from better booking.
+Rules:
+- Output exactly ONE sentence in Latvian, starting with a lowercase letter
+- Describe the specific problem you found and its consequence for clients
+- NEVER output "No problem found", "Nav problēmu", or anything similar
+- NEVER output explanations, reasoning, or multiple sentences
+- Do NOT wrap in quotes
+- If the website looks polished and has everything, default to problem #1 — every salon benefits from online booking, and very few Latvian salon websites have a real booking system integrated
+
+Example outputs:
+- mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana
+- pakalpojumu cenas nav norādītas mājaslapā — klienti nezina, ko sagaidīt pirms vizītes
+- mājaslapā nav darbu fotogrāfiju — jauni klienti nevar novērtēt kvalitāti pirms pierakstīšanās
+- mājaslapas izkārtojums izskatās novecojis — tas var atbaidīt jaunus klientus, kuri meklē modernu salonu
 
 One Latvian sentence only. No explanation.

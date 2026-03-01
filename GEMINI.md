@@ -23,7 +23,7 @@ Build a fully automated pipeline that:
 | Lead Sourcing | Apify Google Maps Scraper OR Google Places API |
 | Email Finding | Hunter.io API |
 | Website Screenshot | ScreenshotOne API |
-| AI Vision + Copywriting | Google Gemini 1.5 Flash (cost-efficient) |
+| AI Vision + Copywriting | OpenAI gpt-4o-mini (cost-efficient) |
 | Email Sending | Gmail node (n8n) or Brevo SMTP |
 | Logging | Google Sheets node OR Supabase |
 | Code environment | Node.js / Python for any helper scripts |
@@ -69,7 +69,7 @@ Build a fully automated pipeline that:
 - Don't send an email if no valid email address was found — skip and log as `no_email`
 - Don't analyze a website if the URL returns a 404 — skip and log as `dead_site`
 - Don't generate an email without a specific problem from the analysis step — the generic fallback email is NOT acceptable
-- Don't use GPT-4 when Gemini Flash can do the job — keep costs near zero
+- Don't use heavy models like GPT-4o when gpt-4o-mini can do the job — keep costs near zero
 
 ### When Stuck
 - If an API returns unexpected data, log the raw response and skip that lead rather than crashing the whole flow
@@ -115,7 +115,7 @@ Full Latvian B2B cold email system prompt (~250 lines). Includes:
 APIFY_API_KEY=
 HUNTER_API_KEY=
 SCREENSHOTONE_API_KEY=
-GEMINI_API_KEY=
+OPENAI_API_KEY=
 GMAIL_CLIENT_ID=
 GMAIL_CLIENT_SECRET=
 GMAIL_REFRESH_TOKEN=

@@ -81,9 +81,9 @@ The `body` field must use `\n` for line breaks. No HTML. Plain text only.
 1. **Greeting** — `Labdien, [First Name],` (if name unknown: `Labdien,`)
 2. **Specific Observation** — One sentence referencing the exact problem found on their website/business. This must feel hand-researched, not templated.
 3. **Who you are + what you do** — One sentence. Niche-specialist framing only. Never say "we" if working alone.
-4. **Social proof or mechanism** — One sentence. Keep modest and believable. Reference similar local businesses if possible. No grand numbers.
-5. **CTA** — Use the exact sentence specified in CTA rules.
-6. **Opt-Out** — Add the natural opt-out sentence.
+4. **Social proof** — COPY-PASTE the LOCKED social proof sentence from the "WHAT YOU ARE SELLING" section below. Do NOT rewrite, rephrase, or paraphrase it.
+5. **CTA** — COPY-PASTE the LOCKED CTA sentence from the "CTA RULES" section below. Do NOT rewrite, rephrase, or paraphrase it.
+6. **Opt-Out** — COPY-PASTE the LOCKED opt-out sentence from the "OPT-OUT" section below. Do NOT rewrite, rephrase, or paraphrase it.
 7. **Sign-off** — `Ar cieņu,\n[Sender Name]\n[Email]`
 
 ---
@@ -135,8 +135,9 @@ Frame yourself as:
 
 Never offer vague "website improvements." Always tie the solution back to online booking and not losing clients who don't want to call.
 
-Social proof line — use this exact sentence:
+Social proof — LOCKED SENTENCE (copy-paste verbatim, do NOT change a single word):
 "Nesen palīdzēju Rīgas naglu salonam ieviest tiešsaistes pierakstu, un viņi pārtrauca zaudēt klientus, kuri negrib zvanīt."
+⚠️ DO NOT PARAPHRASE. DO NOT REWORD. Output this sentence character-for-character.
 
 ---
 
@@ -145,8 +146,9 @@ Social proof line — use this exact sentence:
 The CTA must make it trivially easy to say yes or no. One simple question.
 It must be about the outcome (clients booking themselves) not the technical feature.
 
-Use this exact CTA:
+CTA — LOCKED SENTENCE (copy-paste verbatim, do NOT change a single word):
 "Vai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?"
+⚠️ DO NOT PARAPHRASE. DO NOT REWORD. Output this sentence character-for-character.
 
 Never ask for a call, a meeting, or a Calendly link in the first email.
 
@@ -252,8 +254,9 @@ Before returning the email, verify every item:
 - [ ] No exclamation marks, no emojis
 - [ ] No "hope this finds you well" or equivalent filler
 - [ ] Sender uses "Es" not "Mēs"
-- [ ] CTA uses the exact sentence requested
+- [ ] CTA is character-for-character identical to the LOCKED CTA sentence — not paraphrased
+- [ ] Social proof is character-for-character identical to the LOCKED social proof sentence — not paraphrased
+- [ ] Opt-out is character-for-character identical to the LOCKED opt-out sentence — not paraphrased
 - [ ] Subject line is factual, no hype words
-- [ ] Opt-out sentence is placed naturally before sign-off
 - [ ] Sign-off is "Ar cieņu,"
 - [ ] Output is valid JSON with "subject" and "body" keys
