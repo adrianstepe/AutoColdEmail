@@ -2,3 +2,4 @@
 node_modules/
 logs/sent_emails.csv
 screenshots/
+n8n.log

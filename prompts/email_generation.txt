@@ -70,6 +70,7 @@ The `body` field must use `\n` for line breaks. No HTML. Plain text only.
 - No emojis
 - No phrases like "I hope this finds you well" — this is recognized immediately as filler and considered disrespectful of the reader's time
 - Write as a peer-level consultant, not a vendor pitching
+- **NO em dashes (—)**. Do not use the long AI dash `—`. If you need a dash, use a standard hyphen `-` or rewrite the sentence using normal punctuation like commas or periods.
 
 ### Length
 - **3–5 sentences maximum in the body** (excluding greeting and sign-off)
@@ -186,7 +187,7 @@ It must look like a human wrote it, not a compliance robot.
 ```json
 {
   "subject": "Jautājums par Restorāns Vējš mājaslapu",
-  "body": "Labdien, Jāni,\n\nIzskatot Jūsu mājaslapu vejsrestaurant.lv, pamanīju, ka tajā šobrīd nav tiešsaistes galda rezervācijas iespējas — klienti, kas meklē galdu vakarā, visticamāk, vienkārši dodas pie konkurentiem.\n\nEs specializējos tieši restorānu un kafejnīcu mājaslapu izveidē Rīgā, pievienojot vienkāršas rezervācijas sistēmas, kas darbojas gan datorā, gan mobilajā telefonā.\n\nNesen palīdzēju līdzīgam Rīgas restorānam ieviest šo risinājumu divu nedēļu laikā.\n\nVai Jums būtu interese — varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?\n\nJa nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.\n\nAr cieņu,\nAdrians\nadrians@example.lv"
+  "body": "Labdien, Jāni,\n\nIzskatot Jūsu mājaslapu vejsrestaurant.lv, pamanīju, ka tajā šobrīd nav tiešsaistes galda rezervācijas iespējas - klienti, kas meklē galdu vakarā, visticamāk, vienkārši dodas pie konkurentiem.\n\nEs specializējos tieši restorānu un kafejnīcu mājaslapu izveidē Rīgā, pievienojot vienkāršas rezervācijas sistēmas, kas darbojas gan datorā, gan mobilajā telefonā.\n\nNesen palīdzēju līdzīgam Rīgas restorānam ieviest šo risinājumu divu nedēļu laikā.\n\nVai Jums būtu interese - varu nosūtīt īsu video, kurā parādu, kā tas izskatītos Jūsu salonam?\n\nJa nevēlaties saņemt šādus e-pastus, vienkārši atbildiet uz šo ziņu.\n\nAr cieņu,\nAdrians\nadrians@example.lv"
 }
 ```
 
@@ -252,6 +253,7 @@ Before returning the email, verify every item:
 - [ ] Body is 3–5 sentences (excluding greeting and sign-off)
 - [ ] Specific problem from input is referenced explicitly
 - [ ] No exclamation marks, no emojis
+- [ ] No em dashes (—) used in the text
 - [ ] No "hope this finds you well" or equivalent filler
 - [ ] Sender uses "Es" not "Mēs"
 - [ ] CTA is character-for-character identical to the LOCKED CTA sentence — not paraphrased

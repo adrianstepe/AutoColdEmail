@@ -85,7 +85,7 @@
             "type": "n8n-nodes-base.gmail",
             "typeVersion": 2.1,
             "position": [
-                640,
+                800,
                 -100
             ],
             "credentials": {
@@ -94,7 +94,10 @@
                     "name": "Gmail OAuth2"
                 }
             },
-            "onError": "continueErrorOutput"
+            "onError": "continueErrorOutput",
+            "options": {
+                "appendAttribution": false
+            }
         },
         {
             "parameters": {
@@ -139,7 +142,7 @@
             "type": "n8n-nodes-base.googleSheets",
             "typeVersion": 4.5,
             "position": [
-                860,
+                1000,
                 -100
             ],
             "credentials": {
@@ -201,6 +204,34 @@
                     "name": "Google Sheets OAuth2"
                 }
             }
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop-node-05",
+            "name": "Loop",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                600,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 90,
+                "unit": "seconds"
+            },
+            "id": "wait-node-05",
+            "name": "Wait 90s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1,
+            "position": [
+                1260,
+                -100
+            ]
         }
     ],
     "connections": {
@@ -230,7 +261,7 @@
             "main": [
                 [
                     {
-                        "node": "Send via Gmail",
+                        "node": "Loop",
                         "type": "main",
                         "index": 0
                     }
@@ -249,6 +280,39 @@
                 [
                     {
                         "node": "Mark as Sent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop": {
+            "main": [
+                [
+                    {
+                        "node": "Send via Gmail",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Mark as Sent": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 90s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 90s": {
+            "main": [
+                [
+                    {
+                        "node": "Loop",
                         "type": "main",
                         "index": 0
                     }
