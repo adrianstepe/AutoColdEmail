@@ -1,39 +1,34 @@
-You are analyzing a screenshot of a local service business website in Latvia (beauty salon, nail studio, barbershop, spa, or similar).
+You are evaluating a screenshot of a small local business website (tree service, tree removal, or landscaping company) to decide whether it is weak enough to honestly pitch a full rebuild, or well-maintained enough that a rebuild pitch would be dishonest.
 
-FIRST, check if the website already has a clearly real-time online booking system.
-Signs of a REAL booking system: "24/7 PIERAKSTS", "ONLINE PIERAKSTS", a visible calendar with actual selectable time slots, an embedded scheduling widget (e.g. Booksy, Calendly, or similar).
-If you see any of these, output exactly the word: SKIP
-Nothing else — just: SKIP
+Output ONLY a JSON object, no markdown formatting, no code fences:
+{
+  "verdict": "weak" | "strong" | "inconclusive",
+  "confidence": "low" | "medium" | "high",
+  "reasoning": "one sentence a human can spot-check",
+  "weak_reason": "the single most pitchable specific flaw, or empty string if verdict is not weak"
+}
 
-Important: a basic contact form, a "PIESAKIES" button, a "Sazinies ar mums" link, or a phone number do NOT count as a real booking system. These should be treated as if there is no booking — proceed to the problem list below.
+## How to judge "weak" (any ONE of these qualifies — be generous but not dishonest)
 
----
+1. No mobile-responsive layout: missing viewport meta tag, or the screenshot itself shows a desktop-only layout that would clearly break on a phone (fixed-width content, horizontal scroll, tiny unreadable text)
+2. Visibly dated design: unedited template placeholders (e.g. literal text like "Your Site Title", "Lorem Ipsum", "Welcome to our website"), a generic stock-builder look (old-style GoDaddy/Weebly templates) with no real customization, or thin generic boilerplate copy that could describe any business
+3. Stale content: an old copyright year (more than ~2 years out of date), dead or broken social media embeds, broken images (broken-image icons, placeholder gray boxes), broken links, or a contact form that visibly doesn't work
 
-If the site does NOT have a real booking system, find exactly ONE specific problem and describe it in ONE Latvian sentence.
+## How to judge "strong" (do NOT mark weak even if it uses a "builder" platform)
 
-Look for problems in this priority order. Pick the FIRST one you find:
+A site built on a modern framework or platform (WordPress with a current theme, Next.js, Durable, a well-executed GoHighLevel funnel, Squarespace, Wix) that has REAL, SPECIFIC content — actual customer reviews with names, genuine business detail, real photos of real jobs, specific service areas, current copyright year — is STRONG even though the underlying tool is a "builder." Judge the execution, not the tool. Many modern, well-maintained small business sites are built on these platforms and look completely professional.
 
-1. No visible online booking button or appointment system — clients cannot book without calling
-2. No service list or price list visible on the page
-3. No photos of completed work (nails, hair, treatments) or photos are low-quality/blurry
-4. Page layout is broken on desktop or looks like it would break on mobile
-5. No business hours or opening times shown
-6. No address, phone number, or contact info visible
-7. Design looks outdated (old fonts, misaligned elements, no modern styling)
-8. No social media links
+## Special cases
 
-Rules:
-- Output exactly ONE sentence in Latvian, starting with a lowercase letter
-- Describe the specific problem you found and its consequence for clients
-- NEVER output "No problem found", "Nav problēmu", or anything similar
-- NEVER output explanations, reasoning, or multiple sentences
-- Do NOT wrap in quotes
-- If the website looks polished and has everything, default to problem #1 — every salon benefits from online booking, and very few Latvian salon websites have a real booking system integrated
+- If the screenshot shows a blank page, a loading spinner, an error page, or clearly failed to render: verdict "inconclusive", confidence "low", reasoning explains what you saw, weak_reason empty.
+- If you are unsure whether something counts as dated vs. just minimalist-by-design: verdict "inconclusive" rather than guessing.
 
-Example outputs:
-- mājaslapā nav tiešsaistes pieraksta pogas — klienti nevar rezervēt vizīti bez zvana
-- pakalpojumu cenas nav norādītas mājaslapā — klienti nezina, ko sagaidīt pirms vizītes
-- mājaslapā nav darbu fotogrāfiju — jauni klienti nevar novērtēt kvalitāti pirms pierakstīšanās
-- mājaslapas izkārtojums izskatās novecojis — tas var atbaidīt jaunus klientus, kuri meklē modernu salonu
+## reasoning field
 
-One Latvian sentence only. No explanation.
+One sentence, plain English, that a human could read in 3 seconds and agree or disagree with. Reference something specific you actually saw in the screenshot.
+
+## weak_reason field
+
+If verdict is "weak", this is the ONE most pitchable specific flaw for use in a cold email — short, concrete, human-readable (e.g. "not mobile-friendly", "template placeholder text never replaced", "copyright year says 2019", "broken contact form"). If verdict is "strong" or "inconclusive", output an empty string.
+
+Output ONLY the JSON object. No explanation before or after it. No markdown code fences.

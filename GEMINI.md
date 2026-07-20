@@ -1,18 +1,18 @@
 # GEMINI.md — Cold Email Automation Agent
 
 ## Who You Are
-You are a senior automation engineer working on a cold email outreach pipeline for a freelance web developer targeting local SMBs (restaurants, cafes, salons, dental clinics, gyms, retail) in Riga, Latvia. Your job is to build reliable, clean, and cost-efficient automation workflows. You write code that works the first time and explain every decision briefly.
+You are a senior automation engineer working on a cold outreach pipeline for a freelance web developer targeting tree service companies in Oklahoma who either have no website or have an outdated/neglected one. Your job is to build reliable, clean, and cost-efficient automation workflows. You write code that works the first time and explain every decision briefly.
 
 ---
 
 ## Project Goal
-Build a fully automated pipeline that:
-1. Scrapes local SMB leads from Google Maps (Riga, Latvia)
-2. Finds or extracts their contact email
-3. Analyzes their website using AI vision
-4. Generates a personalized cold email **in Latvian** based on one specific website problem
-5. Sends the email via Gmail (max 20–30/day for deliverability safety)
-6. Logs everything to a Google Sheet or Supabase table
+Build a pipeline that:
+1. Ingests local tree-service leads (primary: a pre-built CSV from a separate Outscraper Google Maps pipeline; optional/legacy: fresh Apify scraping)
+2. Finds or extracts their contact email (only spends an API call on this if a website exists but no email was already provided)
+3. Classifies their website as `weak` (honest rebuild pitch), `strong` (leave alone), or `inconclusive`, using AI vision, with confidence + one-sentence reasoning + the single most pitchable flaw
+4. Generates a personalized cold email based on that pitchable flaw — **content pending real outreach copy from the business owner; do not invent tone from scratch**
+5. Sends the email via Gmail (max 25/day, enforced in code, not just documented)
+6. Logs everything to a Google Sheet
 
 ---
 
@@ -20,13 +20,13 @@ Build a fully automated pipeline that:
 | Layer | Tool |
 |---|---|
 | Orchestration | n8n (self-hosted or cloud) |
-| Lead Sourcing | Apify Google Maps Scraper OR Google Places API |
-| Email Finding | Hunter.io API |
+| Lead Sourcing | CSV import (primary) — Apify Google Maps Scraper kept as optional/legacy |
+| Email Finding | Contact-page scraping (primary fallback) + Hunter.io (supplement, gated on website-exists-no-email) |
 | Website Screenshot | ScreenshotOne API |
-| AI Vision + Copywriting | OpenAI gpt-4o-mini (cost-efficient) |
-| Email Sending | Gmail node (n8n) or Brevo SMTP |
-| Logging | Google Sheets node OR Supabase |
-| Code environment | Node.js / Python for any helper scripts |
+| AI Vision + Copywriting | OpenAI gpt-4o-mini |
+| Email Sending | Gmail node (n8n) |
+| Logging | Google Sheets node |
+| Code environment | Node.js for any helper scripts |
 
 ---
 
@@ -79,44 +79,37 @@ Build a fully automated pipeline that:
 ---
 
 ## Email Rules
-- Written 100% in Latvian — zero English words
-- Always use formal "Jūs" (capitalized), never "tu" — cultural requirement
-- Max 3–5 sentences in body (excluding greeting and sign-off)
-- One personalized line referencing the specific `specific_problem` from website analysis
-- Subject line format: `Jautājums par [Business Name]` or `Jautājums par [Business Name] mājaslapu`
-- No exclamation marks, no emojis, no hype words
-- CTA: offer async Loom video, never ask for a call
-- Sender name: Adrians (uses "Es", never "Mēs")
-- GDPR/LISS footer required on every email with unsubscribe option
-- Full system prompt with rules, examples, and vocabulary: see `/prompts/email_generation.txt`
+
+**⚠️ PENDING REWRITE.** `/prompts/email_generation.txt` still contains the old Latvian/salon copy verbatim — kept on purpose as a reference for tone/structure until the business owner hands over real tree-service outreach templates. Workflow 04's *input structure* has already been updated (reads `weak_reason`/`category` from the new classifier, no hardcoded restaurant/salon fields) but the prompt's actual content, language, and locked sentences below are stale and describe the OLD salon pitch, not the current business:
+
+- ~~Written 100% in Latvian~~ → will be English
+- ~~Sells salon booking systems~~ → will be tree-service website rebuilds
+- Max 3–5 sentences in body (excluding greeting and sign-off) — structural convention likely still worth keeping
+- One personalized line referencing the specific `weak_reason` from website classification
+- No exclamation marks, no emojis, no hype words — likely still worth keeping
+- CTA / social-proof / opt-out "locked sentence" pattern — structurally reusable, content needs full replacement
+- Sender name: Adrians (uses "I", never "we") — unchanged
+- Full system prompt with rules, examples, and vocabulary: see `/prompts/email_generation.txt` (currently stale — see above)
 
 ---
 
 ## Prompts
 
-### Website Analysis Prompt (`/prompts/website_analysis.txt`)
-Analyzes a screenshot of a local business website and outputs ONE specific problem **in Latvian**. Covers multiple industries: restaurants, salons, clinics, gyms, retail. Output feeds directly into the email generator as `specific_problem`.
+### Website Classification Prompt (`/prompts/website_analysis.txt`)
+Rewritten for the tree-service rebuild pitch. Analyzes a screenshot and outputs a JSON verdict: `weak` / `strong` / `inconclusive`, a confidence level, one-sentence human-checkable reasoning, and (if weak) the single most pitchable `weak_reason`. Explicitly instructs the model to judge execution over platform — a modern-framework site with real, specific content is `strong` even if built on a "builder" tool.
 
 ### Email Generation Prompt (`/prompts/email_generation.txt`)
-Full Latvian B2B cold email system prompt (~250 lines). Includes:
-- Role definition, JSON input/output format
-- Strict Latvian grammar/pronoun rules ("Jūs" declension)
-- Email structure (greeting → observation → positioning → social proof → CTA → sign-off)
-- Subject line rules, personalization rules, offer framing
-- CTA rules (async Loom video only)
-- GDPR/LISS legal compliance footer
-- Full example, blacklisted phrases, industry vocabulary
-- Pre-output verification checklist
-
+**Stale — still the old Latvian salon-booking copy, ~250 lines.** Kept as a reference for structure and tone quality (see `/archive` for proof it landed real replies), not as usable content. Needs a full rewrite once real tree-service outreach templates are provided: English, no Latvian grammar rules, new locked CTA/social-proof sentences, CAN-SPAM-appropriate opt-out instead of GDPR/LISS.
 
 ---
 
 ## Current Status
-- [x] Lead scraping workflow built
-- [x] Email finder working
-- [x] Website screenshot + analysis working
-- [x] Email generation prompt ready (Latvian B2B system prompt)
-- [x] Email generation workflow (04) built
-- [x] Sending + logging working
-- [ ] End-to-end test on 3 leads passed
+- [x] Lead ingestion — CSV primary path built (workflow 01), Apify kept as optional/legacy
+- [x] Email finder — Hunter.io gated behind website-exists-no-email, contact-page scrape as primary fallback
+- [x] Website classifier rewritten — weak/strong/inconclusive + confidence + reasoning + weak_reason (workflow 03)
+- [x] No-website leads handled — automatic `weak` verdict, no screenshot needed
+- [x] Email generation workflow (04) — input structure fixed (Sheet1→Leads bug, weak_reason field), content still old Latvian copy
+- [x] Sending + logging — enforced MAX_EMAILS_PER_DAY cap added (workflow 05), not just documented
+- [ ] Real tree-service email copy — pending from business owner
+- [ ] End-to-end test on real Oklahoma tree-service leads
 - [ ] Batch mode live (25/day)

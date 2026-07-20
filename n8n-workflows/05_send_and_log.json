@@ -74,6 +74,106 @@
         },
         {
             "parameters": {
+                "jsCode": "// Enforces the hard MAX_EMAILS_PER_DAY cap using n8n's persistent workflow static data,\n// which survives across separate executions of this workflow — item data does not,\n// so without this the daily limit was documented but never actually enforced in code\n// (only the 90s wait between sends existed).\nconst staticData = $getWorkflowStaticData('global');\nconst today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD, UTC\n\nif (staticData.sendDate !== today) {\n  staticData.sendDate = today;\n  staticData.sentCount = 0;\n}\n\nconst DAILY_LIMIT = Number($env.MAX_EMAILS_PER_DAY) || 25;\nconst alreadySent = staticData.sentCount || 0;\nconst remainingQuota = Math.max(0, DAILY_LIMIT - alreadySent);\n\nconst items = $input.all();\nreturn items.map((item, index) => ({\n  json: {\n    ...item.json,\n    withinDailyLimit: index < remainingQuota\n  }\n}));\n"
+            },
+            "id": "check-daily-limit",
+            "name": "Check Daily Limit",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                560,
+                -100
+            ],
+            "notes": "Read-only quota check. Tags each approved lead with whether it fits under today's remaining MAX_EMAILS_PER_DAY (default 25) quota."
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "condition-within-daily-limit",
+                            "leftValue": "={{ $json.withinDailyLimit }}",
+                            "rightValue": "={{ true }}",
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "true",
+                                "name": "isTrue"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                }
+            },
+            "id": "within-daily-limit-if",
+            "name": "Within Daily Limit?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2,
+            "position": [
+                680,
+                -100
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "documentId": {
+                    "__rl": true,
+                    "value": "={{$env.GOOGLE_SHEET_ID}}",
+                    "mode": "id"
+                },
+                "sheetName": {
+                    "__rl": true,
+                    "value": "Leads",
+                    "mode": "name"
+                },
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "status": "skipped_daily_limit"
+                    },
+                    "matchingColumns": [
+                        "name"
+                    ],
+                    "schema": [
+                        {
+                            "id": "name",
+                            "displayName": "name",
+                            "required": true,
+                            "defaultMatch": true
+                        },
+                        {
+                            "id": "status",
+                            "displayName": "status",
+                            "required": false,
+                            "defaultMatch": false
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "log-skipped-daily-limit",
+            "name": "Mark as Skipped (Daily Limit)",
+            "type": "n8n-nodes-base.googleSheets",
+            "typeVersion": 4.5,
+            "position": [
+                680,
+                140
+            ],
+            "credentials": {
+                "googleSheetsOAuth2Api": {
+                    "id": "XU9BVy1MqW6lCLNl",
+                    "name": "Google Sheets OAuth2"
+                }
+            },
+            "notes": "Left as email_generated/approved for tomorrow's run to pick up — status here is informational, not a terminal state, since these leads should still be sendable once the daily quota resets."
+        },
+        {
+            "parameters": {
                 "sendTo": "={{ $json.email }}",
                 "subject": "={{ $json.email_subject }}",
                 "message": "={{ $json.email_body }}",
@@ -85,8 +185,8 @@
             "type": "n8n-nodes-base.gmail",
             "typeVersion": 2.1,
             "position": [
-                800,
-                -100
+                900,
+                -200
             ],
             "credentials": {
                 "gmailOAuth2": {
@@ -98,6 +198,19 @@
             "options": {
                 "appendAttribution": false
             }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Counts this send against today's quota. Placed after the actual Gmail send\n// (not at the gate above) so the persistent counter reflects attempted sends,\n// not just approved-and-queued leads.\nconst staticData = $getWorkflowStaticData('global');\nconst today = new Date().toISOString().slice(0, 10);\nif (staticData.sendDate !== today) {\n  staticData.sendDate = today;\n  staticData.sentCount = 0;\n}\nstaticData.sentCount = (staticData.sentCount || 0) + 1;\nreturn $input.all();\n"
+            },
+            "id": "increment-daily-counter",
+            "name": "Increment Daily Counter",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1100,
+                -200
+            ]
         },
         {
             "parameters": {
@@ -261,7 +374,7 @@
             "main": [
                 [
                     {
-                        "node": "Loop",
+                        "node": "Check Daily Limit",
                         "type": "main",
                         "index": 0
                     }
@@ -275,7 +388,47 @@
                 ]
             ]
         },
+        "Check Daily Limit": {
+            "main": [
+                [
+                    {
+                        "node": "Within Daily Limit?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Within Daily Limit?": {
+            "main": [
+                [
+                    {
+                        "node": "Loop",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Mark as Skipped (Daily Limit)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
         "Send via Gmail": {
+            "main": [
+                [
+                    {
+                        "node": "Increment Daily Counter",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Increment Daily Counter": {
             "main": [
                 [
                     {

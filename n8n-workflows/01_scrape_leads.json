@@ -1,17 +1,58 @@
 {
-    "name": "01 — Scrape Leads from Google Maps",
+    "name": "01 — Ingest Leads (CSV primary, Apify optional)",
     "id": "NAQyd5sEAy9aA1K0",
     "nodes": [
         {
             "parameters": {},
-            "id": "a1b2c3d4-0001-4000-8000-000000000001",
-            "name": "Start",
+            "id": "csv-start",
+            "name": "Start (CSV Import)",
             "type": "n8n-nodes-base.manualTrigger",
             "typeVersion": 1,
             "position": [
                 240,
                 300
-            ]
+            ],
+            "notes": "Primary path. Run this to ingest a pre-built lead CSV (e.g. an Outscraper Google Maps export) instead of scraping fresh."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Reads a lead CSV (e.g. Outscraper Google Maps export) and parses it into row objects.\n// Expected columns: name, phone, city, state, address, website, email, reviews, rating, business_status, category\n// Path comes from LEADS_CSV_PATH env var, defaults to ./leads.csv in the project root.\n\nconst fs = require('fs');\nconst path = require('path');\n\nconst csvPath = process.env.LEADS_CSV_PATH || path.join(process.cwd(), 'leads.csv');\n\nif (!fs.existsSync(csvPath)) {\n  throw new Error(`CSV not found at ${csvPath}. Set LEADS_CSV_PATH in .env or place leads.csv in the project root.`);\n}\n\nconst raw = fs.readFileSync(csvPath, 'utf8');\n\nfunction parseCsvRow(rowStr) {\n  const values = [];\n  let current = '';\n  let inQuotes = false;\n  for (let i = 0; i < rowStr.length; i++) {\n    const c = rowStr[i];\n    if (c === '\"') {\n      if (inQuotes && rowStr[i + 1] === '\"') {\n        current += '\"';\n        i++;\n      } else {\n        inQuotes = !inQuotes;\n      }\n    } else if (c === ',' && !inQuotes) {\n      values.push(current);\n      current = '';\n    } else {\n      current += c;\n    }\n  }\n  values.push(current);\n  return values;\n}\n\nconst lines = raw.split(/\\r?\\n/).filter(l => l.trim().length > 0);\nconst headers = parseCsvRow(lines[0]).map(h => h.trim().toLowerCase());\n\nconst rows = lines.slice(1).map(line => {\n  const values = parseCsvRow(line);\n  const row = {};\n  headers.forEach((h, i) => { row[h] = (values[i] || '').trim(); });\n  return row;\n});\n\nreturn rows.map(row => ({ json: row }));\n"
+            },
+            "id": "read-leads-csv",
+            "name": "Read Leads CSV",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                480,
+                300
+            ],
+            "notes": "Parses the CSV named by LEADS_CSV_PATH into one item per row. Handles quoted fields containing commas."
+        },
+        {
+            "parameters": {
+                "jsCode": "// Maps Outscraper CSV columns into the pipeline's lead-record shape.\n// Unlike the Apify path, leads with NO website are kept here — a missing\n// website is the primary signal this campaign targets, not a reason to drop the lead.\n\nconst items = $input.all();\n\nreturn items.map(item => {\n  const row = item.json;\n\n  const website = (row.website || '').trim();\n  const email = (row.email || '').trim();\n  const cityState = [row.city, row.state].filter(Boolean).join(', ');\n  const address = [row.address, cityState].filter(Boolean).join(', ');\n\n  return {\n    json: {\n      name: row.name || 'Unknown',\n      website: website,\n      address: address,\n      rating: row.rating || '',\n      phone: row.phone || '',\n      category: row.category || '',\n      business_status: row.business_status || '',\n      reviews: row.reviews || '',\n      email: email,\n      status: email ? 'email_found' : 'scraped'\n    }\n  };\n});\n"
+            },
+            "id": "map-csv-schema",
+            "name": "Map CSV to Lead Schema",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                720,
+                300
+            ],
+            "notes": "Leads that already have an email (Outscraper enrichment) go straight to email_found, skipping Hunter.io in workflow 02. Leads without one stay at scraped so 02 can attempt to find one (only if a website exists)."
+        },
+        {
+            "parameters": {},
+            "id": "apify-start",
+            "name": "Start (Apify — Optional)",
+            "type": "n8n-nodes-base.manualTrigger",
+            "typeVersion": 1,
+            "position": [
+                240,
+                700
+            ],
+            "notes": "Optional/legacy path for scraping a fresh city from Google Maps when you don't already have a CSV. Not required for normal operation."
         },
         {
             "parameters": {
@@ -28,7 +69,7 @@
                 },
                 "sendBody": true,
                 "specifyBody": "json",
-                "jsonBody": "{\n  \"searchStringsArray\": [\"skaistumkopšanas salons Rīga\", \"nagu studija Rīga\", \"frizētava Rīga\"],\n  \"maxCrawledPlacesPerSearch\": 15,\n  \"language\": \"en\",\n  \"includeWebResults\": false\n}",
+                "jsonBody": "={{ JSON.stringify({ searchStringsArray: ($env.APIFY_SEARCH_TERMS || 'tree service').split('|'), maxCrawledPlacesPerSearch: Number($env.APIFY_MAX_PER_SEARCH) || 100, language: 'en', includeWebResults: false }) }}",
                 "options": {
                     "timeout": 180000
                 }
@@ -39,10 +80,10 @@
             "typeVersion": 4.2,
             "position": [
                 480,
-                300
+                700
             ],
             "onError": "continueErrorOutput",
-            "notes": "Starts the Apify Google Maps Scraper actor. Waits up to 120s for results. Uses APIFY_API_KEY from environment."
+            "notes": "Starts the Apify Google Maps Scraper actor. Search terms and region now come from APIFY_SEARCH_TERMS (pipe-separated) in .env instead of being hardcoded."
         },
         {
             "parameters": {
@@ -73,7 +114,7 @@
             "typeVersion": 2,
             "position": [
                 480,
-                520
+                920
             ],
             "notes": "Routes Apify errors to the alert node"
         },
@@ -91,13 +132,13 @@
             "typeVersion": 4.2,
             "position": [
                 720,
-                300
+                700
             ],
             "notes": "Fetches the dataset items from the last Apify run"
         },
         {
             "parameters": {
-                "jsCode": "// Extract and clean lead data from Apify Google Maps results\n// Filter out leads with no website URL — per GEMINI.md rules\n\nconst items = $input.all();\nconst leads = [];\n\nfor (const item of items) {\n  const data = item.json;\n  \n  // Skip if no website URL\n  if (!data.website && !data.url) {\n    continue;\n  }\n\n  leads.push({\n    name: data.title || data.name || 'Unknown',\n    website: data.website || data.url || '',\n    address: data.address || data.street || '',\n    rating: data.totalScore || data.rating || '',\n    phone: data.phone || data.phoneUnformatted || '',\n    status: 'scraped'\n  });\n}\n\n// Return clean leads as individual items for downstream nodes\nreturn leads.map(lead => ({ json: lead }));\n"
+                "jsCode": "// Extract and clean lead data from Apify Google Maps results.\n// Unlike the CSV path, this keeps leads with no website — the Apify path\n// is for discovering a fresh city's full business universe, and a missing\n// website here is exactly what we're looking for, same as the CSV path.\n\nconst items = $input.all();\nconst leads = [];\n\nfor (const item of items) {\n  const data = item.json;\n\n  leads.push({\n    name: data.title || data.name || 'Unknown',\n    website: data.website || data.url || '',\n    address: data.address || data.street || '',\n    rating: data.totalScore || data.rating || '',\n    phone: data.phone || data.phoneUnformatted || '',\n    category: data.categoryName || '',\n    business_status: data.permanentlyClosed ? 'CLOSED' : 'OPERATIONAL',\n    reviews: data.reviewsCount || '',\n    email: '',\n    status: 'scraped'\n  });\n}\n\nreturn leads.map(lead => ({ json: lead }));\n"
             },
             "id": "a1b2c3d4-0001-4000-8000-000000000004",
             "name": "Clean & Filter Leads",
@@ -105,42 +146,9 @@
             "typeVersion": 2,
             "position": [
                 960,
-                300
+                700
             ],
-            "notes": "Extracts name, website, address, rating, phone. Filters out any result with no website URL. Sets status to 'scraped'."
-        },
-        {
-            "parameters": {
-                "conditions": {
-                    "options": {
-                        "caseSensitive": true,
-                        "leftValue": "",
-                        "typeValidation": "strict"
-                    },
-                    "conditions": [
-                        {
-                            "id": "condition-has-website",
-                            "leftValue": "={{ !!$json.website }}",
-                            "rightValue": "={{ true }}",
-                            "operator": {
-                                "type": "boolean",
-                                "operation": "true",
-                                "name": "isTrue"
-                            }
-                        }
-                    ],
-                    "combinator": "and"
-                }
-            },
-            "id": "a1b2c3d4-0001-4000-8000-000000000005",
-            "name": "Has Website?",
-            "type": "n8n-nodes-base.if",
-            "typeVersion": 2,
-            "position": [
-                1200,
-                300
-            ],
-            "notes": "Double-check: only pass leads that have a website URL"
+            "notes": "Extracts name, website, address, rating, phone, category. No-website leads are kept (see task: no-website businesses are the primary target)."
         },
         {
             "parameters": {
@@ -168,7 +176,7 @@
             "type": "n8n-nodes-base.googleSheets",
             "typeVersion": 4.5,
             "position": [
-                1440,
+                960,
                 300
             ],
             "credentials": {
@@ -177,21 +185,21 @@
                     "name": "Google Sheets OAuth2"
                 }
             },
-            "notes": "Appends each lead to the 'Leads' sheet. Columns: name, website, address, rating, phone, status. Requires Google Sheets OAuth2 credential configured in n8n."
+            "notes": "Appends each lead. Sheet 'Leads' tab needs columns: name, website, address, rating, phone, category, business_status, reviews, email, status. Shared by both the CSV and Apify paths."
         },
         {
             "parameters": {
-                "jsCode": "// Count total leads saved\nconst items = $input.all();\nconst count = items.length;\nreturn [{ json: { message: `✅ Scraping complete. ${count} leads saved to Google Sheets with status 'scraped'.`, leadsCount: count } }];\n"
+                "jsCode": "// Count total leads saved\nconst items = $input.all();\nconst count = items.length;\nreturn [{ json: { message: `✅ Ingestion complete. ${count} leads saved to Google Sheets.`, leadsCount: count } }];\n"
             },
             "id": "a1b2c3d4-0001-4000-8000-000000000007",
             "name": "Summary",
             "type": "n8n-nodes-base.code",
             "typeVersion": 2,
             "position": [
-                1680,
+                1200,
                 300
             ],
-            "notes": "Outputs a summary of how many leads were scraped and saved"
+            "notes": "Outputs a summary of how many leads were saved, regardless of which path fed it"
         },
         {
             "parameters": {
@@ -207,7 +215,7 @@
             "typeVersion": 2.1,
             "position": [
                 720,
-                520
+                920
             ],
             "credentials": {
                 "gmailOAuth2": {
@@ -216,22 +224,43 @@
                 }
             },
             "notes": "Sends an error alert email if the Apify scraper fails (non-200 response). Replace credential ID with your Gmail OAuth2 credential."
-        },
-        {
-            "parameters": {},
-            "id": "a1b2c3d4-0001-4000-8000-000000000009",
-            "name": "No Website — Skip",
-            "type": "n8n-nodes-base.noOp",
-            "typeVersion": 1,
-            "position": [
-                1440,
-                500
-            ],
-            "notes": "Leads without a website URL are dropped here"
         }
     ],
     "connections": {
-        "Start": {
+        "Start (CSV Import)": {
+            "main": [
+                [
+                    {
+                        "node": "Read Leads CSV",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Read Leads CSV": {
+            "main": [
+                [
+                    {
+                        "node": "Map CSV to Lead Schema",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Map CSV to Lead Schema": {
+            "main": [
+                [
+                    {
+                        "node": "Save to Google Sheet",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Start (Apify — Optional)": {
             "main": [
                 [
                     {
@@ -286,25 +315,7 @@
             "main": [
                 [
                     {
-                        "node": "Has Website?",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Has Website?": {
-            "main": [
-                [
-                    {
                         "node": "Save to Google Sheet",
-                        "type": "main",
-                        "index": 0
-                    }
-                ],
-                [
-                    {
-                        "node": "No Website — Skip",
                         "type": "main",
                         "index": 0
                     }
@@ -335,6 +346,6 @@
         }
     ],
     "triggerCount": 0,
-    "updatedAt": "2026-02-28T00:00:00.000Z",
-    "versionId": "1"
+    "updatedAt": "2026-07-20T00:00:00.000Z",
+    "versionId": "2"
 }

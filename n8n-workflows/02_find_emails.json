@@ -1,5 +1,5 @@
 {
-  "name": "02 — Find Emails (Hunter.io)",
+  "name": "02 — Find Emails (contact-page scrape primary, Hunter.io fallback)",
   "nodes": [
     {
       "parameters": {},
@@ -53,17 +53,63 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extract the domain from a full website URL\n// e.g. https://www.myrestaurant.lv/menu → myrestaurant.lv\n\nconst item = $input.item;\nconst url = item.json.website || '';\n\nlet domain = '';\ntry {\n  const parsed = new URL(url.startsWith('http') ? url : 'https://' + url);\n  domain = parsed.hostname.replace(/^www\\./, '');\n} catch (e) {\n  domain = url.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    domain: domain\n  }\n}];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-has-website-02",
+              "leftValue": "={{ $json.website }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000000",
+      "name": "Has Website?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        720,
+        300
+      ],
+      "notes": "Gate: only worth calling Hunter.io if there's a domain to search. No-website leads skip straight to no_email — don't waste the API call (Hunter returns 0% for these anyway)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// No website at all — nothing for Hunter.io or the contact-page scraper to work with.\n// Mark directly as no_email rather than spending an API call that will return nothing.\nconst item = $input.item;\nreturn [{\n  json: {\n    ...item.json,\n    email: '',\n    email_source: 'no_website',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000014",
+      "name": "No Website — Skip Hunter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        560
+      ],
+      "notes": "Leads with no website are marked no_email immediately, without calling Hunter.io."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the domain from a full website URL\n// e.g. https://www.example-tree-service.com/services → example-tree-service.com\n\nconst item = $input.item;\nconst url = item.json.website || '';\n\nlet domain = '';\ntry {\n  const parsed = new URL(url.startsWith('http') ? url : 'https://' + url);\n  domain = parsed.hostname.replace(/^www\\./, '');\n} catch (e) {\n  domain = url.replace(/^https?:\\/\\//, '').replace(/^www\\./, '').split('/')[0];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    domain: domain\n  }\n}];\n"
       },
       "id": "b1b2c3d4-0002-4000-8000-000000000003",
       "name": "Extract Domain",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        720,
-        300
+        960,
+        220
       ],
-      "notes": "Extracts clean domain from website URL (strips protocol, www, path)"
+      "notes": "Extracts clean domain from website URL (strips protocol, www, path). Runs once, feeds both the scrape and the Hunter fallback below."
     },
     {
       "parameters": {
@@ -78,11 +124,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        960,
-        300
+        1680,
+        460
       ],
       "onError": "continueErrorOutput",
-      "notes": "Calls Hunter.io Domain Search API to find email addresses for this domain. Returns up to 10 emails with confidence scores."
+      "notes": "Fallback only — runs when the free contact-page scrape above found nothing. Calls Hunter.io Domain Search API, up to 10 emails with confidence scores."
     },
     {
       "parameters": {
@@ -93,10 +139,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
-        300
+        1920,
+        400
       ],
-      "notes": "Picks the best email from Hunter.io results. Prioritizes personal over generic, then by confidence score. If none found, passes empty email for fallback."
+      "notes": "Picks the best email from Hunter.io results. Prioritizes personal over generic, then by confidence score."
     },
     {
       "parameters": {
@@ -107,10 +153,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
-        520
+        1920,
+        560
       ],
-      "notes": "Handles Hunter.io API failures. Logs the raw error and passes the lead through with empty email so the fallback scraper can try."
+      "notes": "Handles Hunter.io API failures. Logs the raw error and passes the lead through with empty email."
     },
     {
       "parameters": {
@@ -139,28 +185,60 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1440,
-        400
+        2160,
+        460
       ],
-      "notes": "Routes leads: if Hunter found an email → update sheet. If not → try fallback contact page scraper."
+      "notes": "Routes leads: Hunter found an email → update sheet. Hunter also found nothing → mark no_email, nothing left to try."
     },
     {
       "parameters": {
-        "jsCode": "// Multi-path fallback: try homepage + common Latvian contact pages to find email\n// Tries each URL in order, stops at first email found\n\nconst https = require('https');\nconst http = require('http');\n\nconst prevData = {\n  name: $input.item.json.name,\n  website: $input.item.json.website,\n  address: $input.item.json.address,\n  rating: $input.item.json.rating,\n  phone: $input.item.json.phone,\n  domain: $input.item.json.domain\n};\n\nconst baseUrl = (prevData.website || '').replace(/\\/$/, '');\nconst domain = prevData.domain || '';\n\n// Pages to try, in priority order (homepage first — footer usually has email)\nconst paths = ['', '/kontakti', '/lv/kontakti', '/kontakts', '/contact', '/contacts', '/par-mums'];\n\nconst emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n\nfunction fetchPage(url) {\n  return new Promise((resolve) => {\n    const mod = url.startsWith('https') ? https : http;\n    const req = mod.get(url, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false }, (res) => {\n      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {\n        const redir = res.headers.location.startsWith('http') ? res.headers.location : baseUrl + res.headers.location;\n        res.resume();\n        return fetchPage(redir).then(resolve);\n      }\n      let data = '';\n      res.on('data', (c) => data += c);\n      res.on('end', () => resolve(res.statusCode === 200 ? data : ''));\n    });\n    req.on('error', () => resolve(''));\n    req.on('timeout', () => { req.destroy(); resolve(''); });\n  });\n}\n\nfunction extractEmails(html) {\n  const matches = html.match(emailRegex) || [];\n  return [...new Set(matches)].filter(e =>\n    !e.includes('example.com') &&\n    !e.includes('sentry.io') &&\n    !e.includes('wixpress') &&\n    !e.includes('schema.org') &&\n    !e.includes('.png') &&\n    !e.includes('.jpg') &&\n    !e.includes('.svg') &&\n    !e.includes('@2x') &&\n    !e.includes('webpack')\n  );\n}\n\nfor (const p of paths) {\n  const url = baseUrl + p;\n  const html = await fetchPage(url);\n  if (!html) continue;\n\n  const emails = extractEmails(html);\n  if (emails.length === 0) continue;\n\n  // Prefer emails matching the site's own domain\n  const domainEmails = emails.filter(e => e.endsWith('@' + domain) || e.includes(domain.split('.')[0]));\n  const bestEmail = domainEmails.length > 0 ? domainEmails[0] : emails[0];\n\n  return [{\n    json: {\n      ...prevData,\n      email: bestEmail,\n      email_source: 'scrape_' + (p || 'homepage').replace('/', ''),\n      email_confidence: domainEmails.length > 0 ? 60 : 40,\n      status: 'email_found'\n    }\n  }];\n}\n\n// No email found on any page\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0,\n    status: 'no_email'\n  }\n}];\n"
+        "jsCode": "// PRIMARY method — free, tried before Hunter.io. Scrapes the homepage + common\n// contact-page paths and extracts any email found via regex. Stops at first hit.\n\nconst https = require('https');\nconst http = require('http');\n\nconst prevData = {\n  name: $input.item.json.name,\n  website: $input.item.json.website,\n  address: $input.item.json.address,\n  rating: $input.item.json.rating,\n  phone: $input.item.json.phone,\n  category: $input.item.json.category,\n  domain: $input.item.json.domain\n};\n\nconst baseUrl = (prevData.website || '').replace(/\\/$/, '');\nconst domain = prevData.domain || '';\n\n// Pages to try, in priority order (homepage first — footer usually has email)\nconst paths = ['', '/contact', '/contact-us', '/about', '/about-us'];\n\nconst emailRegex = /[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g;\n\nfunction fetchPage(url) {\n  return new Promise((resolve) => {\n    const mod = url.startsWith('https') ? https : http;\n    const req = mod.get(url, { timeout: 8000, headers: { 'User-Agent': 'Mozilla/5.0' }, rejectUnauthorized: false }, (res) => {\n      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {\n        const redir = res.headers.location.startsWith('http') ? res.headers.location : baseUrl + res.headers.location;\n        res.resume();\n        return fetchPage(redir).then(resolve);\n      }\n      let data = '';\n      res.on('data', (c) => data += c);\n      res.on('end', () => resolve(res.statusCode === 200 ? data : ''));\n    });\n    req.on('error', () => resolve(''));\n    req.on('timeout', () => { req.destroy(); resolve(''); });\n  });\n}\n\nfunction extractEmails(html) {\n  const matches = html.match(emailRegex) || [];\n  return [...new Set(matches)].filter(e =>\n    !e.includes('example.com') &&\n    !e.includes('sentry.io') &&\n    !e.includes('wixpress') &&\n    !e.includes('schema.org') &&\n    !e.includes('.png') &&\n    !e.includes('.jpg') &&\n    !e.includes('.svg') &&\n    !e.includes('@2x') &&\n    !e.includes('webpack')\n  );\n}\n\nfor (const p of paths) {\n  const url = baseUrl + p;\n  const html = await fetchPage(url);\n  if (!html) continue;\n\n  const emails = extractEmails(html);\n  if (emails.length === 0) continue;\n\n  // Prefer emails matching the site's own domain\n  const domainEmails = emails.filter(e => e.endsWith('@' + domain) || e.includes(domain.split('.')[0]));\n  const bestEmail = domainEmails.length > 0 ? domainEmails[0] : emails[0];\n\n  return [{\n    json: {\n      ...prevData,\n      email: bestEmail,\n      email_source: 'scrape_' + (p || 'homepage').replace('/', ''),\n      email_confidence: domainEmails.length > 0 ? 60 : 40,\n      status: 'email_found'\n    }\n  }];\n}\n\n// Nothing found on any page — email stays empty so the next node's\n// \"Contact Scrape Found Email?\" gate routes on to the Hunter.io fallback.\nreturn [{\n  json: {\n    ...prevData,\n    email: '',\n    email_source: 'none',\n    email_confidence: 0\n  }\n}];\n"
       },
       "id": "b1b2c3d4-0002-4000-8000-000000000008",
       "name": "Scrape Contact Pages",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1680,
-        520
+        1200,
+        220
       ],
-      "notes": "Multi-path fallback: tries homepage + 6 common Latvian contact page paths. Extracts emails via regex, prefers domain-matching emails. Stops at first hit."
+      "notes": "Multi-path scrape: homepage + 4 common English contact-page paths. Extracts emails via regex, prefers domain-matching emails. Now the primary method — Hunter.io only runs if this finds nothing."
     },
     {
       "parameters": {
-        "jsCode": "// Prepare lead data for sheet update — email was found via Hunter.io\nconst item = $input.item;\nreturn [{\n  json: {\n    ...item.json,\n    status: 'email_found'\n  }\n}];\n"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-scrape-found-email",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000009",
+      "name": "Contact Scrape Found Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        220
+      ],
+      "notes": "If the free scrape found an email, skip Hunter.io entirely and go straight to the sheet. Only calls Hunter (paid) when scraping comes up empty."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare lead data for sheet update — email was found via the free contact-page scrape\nconst item = $input.item;\nreturn [{\n  json: {\n    ...item.json,\n    status: 'email_found'\n  }\n}];\n"
       },
       "id": "b1b2c3d4-0002-4000-8000-000000000011",
       "name": "Mark as Email Found",
@@ -168,9 +246,22 @@
       "typeVersion": 2,
       "position": [
         1680,
-        300
+        120
       ],
-      "notes": "Sets status to email_found for leads where Hunter.io returned an email"
+      "notes": "Sets status to email_found for leads where the scrape (or, downstream, Hunter) found an email"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hunter.io also found nothing — nothing left to try, mark no_email.\nconst item = $input.item;\nreturn [{\n  json: {\n    ...item.json,\n    status: 'no_email'\n  }\n}];\n"
+      },
+      "id": "b1b2c3d4-0002-4000-8000-000000000015",
+      "name": "Mark as No Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        560
+      ]
     },
     {
       "parameters": {
@@ -278,7 +369,36 @@
       "main": [
         [
           {
+            "node": "Has Website?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Website?": {
+      "main": [
+        [
+          {
             "node": "Extract Domain",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Website — Skip Hunter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Website — Skip Hunter": {
+      "main": [
+        [
+          {
+            "node": "Update Google Sheet",
             "type": "main",
             "index": 0
           }
@@ -287,6 +407,35 @@
     },
     "Extract Domain": {
       "main": [
+        [
+          {
+            "node": "Scrape Contact Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Contact Pages": {
+      "main": [
+        [
+          {
+            "node": "Contact Scrape Found Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contact Scrape Found Email?": {
+      "main": [
+        [
+          {
+            "node": "Mark as Email Found",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Hunter.io Domain Search",
@@ -347,7 +496,7 @@
         ],
         [
           {
-            "node": "Scrape Contact Pages",
+            "node": "Mark as No Email",
             "type": "main",
             "index": 0
           }
@@ -365,7 +514,7 @@
         ]
       ]
     },
-    "Scrape Contact Pages": {
+    "Mark as No Email": {
       "main": [
         [
           {

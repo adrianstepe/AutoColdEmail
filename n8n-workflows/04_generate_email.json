@@ -22,16 +22,23 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "Sheet1",
-          "mode": "list",
-          "cachedResultName": "Sheet1"
+          "value": "Leads",
+          "mode": "name"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "lookupColumn": "status",
+              "lookupValue": "analyzed"
+            }
+          ]
         },
         "options": {}
       },
       "id": "2",
-      "name": "Read Analyzed Leads",
+      "name": "Read Leads (analyzed)",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.1,
+      "typeVersion": 4.5,
       "position": [
         200,
         0
@@ -39,42 +46,24 @@
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "XU9BVy1MqW6lCLNl",
-          "name": "Google Sheets account"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.status }}",
-              "value2": "analyzed"
-            }
-          ]
+          "name": "Google Sheets OAuth2"
         }
       },
-      "id": "3",
-      "name": "Filter Analyzed",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        400,
-        0
-      ]
+      "notes": "Fixed: was hardcoded to 'Sheet1' (a bug — every other workflow reads/writes the 'Leads' tab). Also moved the status filter server-side instead of a separate IF node, matching workflows 02/03's convention."
     },
     {
       "parameters": {
-        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\n// Load prompt from file — same pattern as workflow 03\nconst workspaceDir = process.cwd();\nconst promptPath = path.join(workspaceDir, 'prompts', 'email_generation.txt');\nconst prompt = fs.readFileSync(promptPath, 'utf8');\n\nconst item = $input.item;\nconst lead = item.json;\n\n// Extract required fields\nconst business_name = lead.name || '';\nconst owner_name = '' || 'Vadītāj';\nconst city = lead.address || 'Rīga';\nconst industry = '' || 'uzņēmums';\nconst specific_problem = lead.specific_problem || '';\nconst website_url = lead.website || '';\nconst sender_name = 'Adrians';\nconst sender_email = 'adrians.stepe@gmail.com';\n\nconst leadData = {\n  business_name: business_name,\n  owner_name: owner_name,\n  city: city,\n  industry: industry,\n  specific_problem: specific_problem,\n  website_url: website_url,\n  sender_name: sender_name,\n  sender_email: sender_email\n};\n\nconst fullPrompt = prompt + \"\\n\\n---\\n\\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\\n\" + JSON.stringify(leadData);\n\nconst body = {\n  model: \"gpt-4o-mini\",\n  messages: [{ role: \"user\", content: fullPrompt }],\n  response_format: { type: \"json_object\" },\n  temperature: 0.7,\n  max_tokens: 4096\n};\n\nreturn [{\n  json: {\n    ...lead,\n    openai_body: body\n  }\n}];\n"
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\n// Load prompt from file — same pattern as workflow 03\nconst workspaceDir = process.cwd();\nconst promptPath = path.join(workspaceDir, 'prompts', 'email_generation.txt');\nconst prompt = fs.readFileSync(promptPath, 'utf8');\n\nconst item = $input.item;\nconst lead = item.json;\n\n// Extract required fields — no hardcoded fallback strings here.\n// Whatever the current email_generation.txt prompt does with an empty\n// owner_name/industry is up to that prompt's own rules.\nconst business_name = lead.name || '';\nconst owner_name = lead.owner_name || '';\nconst city = lead.address || '';\nconst industry = lead.category || '';\nconst weak_reason = lead.weak_reason || '';\nconst website_url = lead.website || '';\nconst sender_name = 'Adrians';\nconst sender_email = 'adrians.stepe@gmail.com';\n\nconst leadData = {\n  business_name: business_name,\n  owner_name: owner_name,\n  city: city,\n  industry: industry,\n  weak_reason: weak_reason,\n  website_url: website_url,\n  sender_name: sender_name,\n  sender_email: sender_email\n};\n\nconst fullPrompt = prompt + \"\\n\\n---\\n\\n**GENERATE THE EMAIL FOR THIS LEAD OUTPUT ONLY VALID JSON:**\\n\" + JSON.stringify(leadData);\n\nconst body = {\n  model: \"gpt-4o-mini\",\n  messages: [{ role: \"user\", content: fullPrompt }],\n  response_format: { type: \"json_object\" },\n  temperature: 0.7,\n  max_tokens: 4096\n};\n\nreturn [{\n  json: {\n    ...lead,\n    openai_body: body\n  }\n}];\n"
       },
       "id": "4",
       "name": "Build OpenAI Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        620,
-        -100
-      ]
+        420,
+        0
+      ],
+      "notes": "Field renamed: specific_problem → weak_reason (matches workflow 03's new output schema). industry now comes from the lead's category field (from the CSV/Apify ingestion) instead of a hardcoded Latvian fallback word."
     },
     {
       "parameters": {
@@ -105,22 +94,22 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        840,
-        -100
+        640,
+        0
       ],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "\nconst item = $input.item;\nconst response = item.json;\n\n// Keep original lead data (we passed it through the HTTP node or can access prior node)\nconst prevData = {\n  name: $('Build OpenAI Request').item.json.name,\n  website: $('Build OpenAI Request').item.json.website,\n  email: $('Build OpenAI Request').item.json.email,\n  specific_problem: $('Build OpenAI Request').item.json.specific_problem\n};\n\nlet emailJson = null;\n\ntry {\n  let text = response.choices[0].message.content;\n  \n  // Clean up markdown formatting if OpenAI returned it despite application/json mime type\n  if (text.startsWith('```json')) {\n    text = text.substring(7);\n  } else if (text.startsWith('```')) {\n    text = text.substring(3);\n  }\n  \n  if (text.endsWith('```\\n')) {\n    text = text.substring(0, text.length - 4);\n  } else if (text.endsWith('```')) {\n    text = text.substring(0, text.length - 3);\n  }\n  \n  emailJson = JSON.parse(text);\n} catch (e) {\n  console.log('Failed to parse OpenAI JSON: ' + e.message);\n}\n\nif (!emailJson || !emailJson.subject || !emailJson.body) {\n  return [{\n    json: {\n      ...prevData,\n      status: 'generation_failed'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...prevData,\n    email_subject: emailJson.subject,\n    email_body: emailJson.body,\n    status: 'email_generated'\n  }\n}];\n"
+        "jsCode": "\nconst item = $input.item;\nconst response = item.json;\n\n// Keep original lead data (we passed it through the HTTP node or can access prior node)\nconst prevData = {\n  name: $('Build OpenAI Request').item.json.name,\n  website: $('Build OpenAI Request').item.json.website,\n  email: $('Build OpenAI Request').item.json.email,\n  weak_reason: $('Build OpenAI Request').item.json.weak_reason\n};\n\nlet emailJson = null;\n\ntry {\n  let text = response.choices[0].message.content;\n  \n  // Clean up markdown formatting if OpenAI returned it despite application/json mime type\n  if (text.startsWith('```json')) {\n    text = text.substring(7);\n  } else if (text.startsWith('```')) {\n    text = text.substring(3);\n  }\n  \n  if (text.endsWith('```\\n')) {\n    text = text.substring(0, text.length - 4);\n  } else if (text.endsWith('```')) {\n    text = text.substring(0, text.length - 3);\n  }\n  \n  emailJson = JSON.parse(text);\n} catch (e) {\n  console.log('Failed to parse OpenAI JSON: ' + e.message);\n}\n\nif (!emailJson || !emailJson.subject || !emailJson.body) {\n  return [{\n    json: {\n      ...prevData,\n      status: 'generation_failed'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...prevData,\n    email_subject: emailJson.subject,\n    email_body: emailJson.body,\n    status: 'email_generated'\n  }\n}];\n"
       },
       "id": "6",
       "name": "Extract Email JSON",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1080,
-        -200
+        860,
+        -100
       ]
     },
     {
@@ -132,8 +121,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1080,
-        0
+        860,
+        100
       ]
     },
     {
@@ -146,29 +135,50 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "Sheet1",
-          "mode": "list",
-          "cachedResultName": "Sheet1"
+          "value": "Leads",
+          "mode": "name"
         },
-        "columnToMatchOn": "name",
-        "valueToMatchOn": "={{ $json.name }}",
-        "fieldsUi": {
-          "fieldValues": [
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email_subject": "={{ $json.email_subject }}",
+            "email_body": "={{ $json.email_body }}",
+            "status": "={{ $json.status }}",
+            "approved": "pending"
+          },
+          "matchingColumns": [
+            "name"
+          ],
+          "schema": [
             {
-              "column": "email_subject",
-              "value": "={{ $json.email_subject }}"
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": true
             },
             {
-              "column": "email_body",
-              "value": "={{ $json.email_body }}"
+              "id": "email_subject",
+              "displayName": "email_subject",
+              "required": false,
+              "defaultMatch": false
             },
             {
-              "column": "status",
-              "value": "={{ $json.status }}"
+              "id": "email_body",
+              "displayName": "email_body",
+              "required": false,
+              "defaultMatch": false
             },
             {
-              "column": "approved",
-              "value": "pending"
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false
+            },
+            {
+              "id": "approved",
+              "displayName": "approved",
+              "required": false,
+              "defaultMatch": false
             }
           ]
         },
@@ -177,17 +187,18 @@
       "id": "8",
       "name": "Update Google Sheet",
       "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.1,
+      "typeVersion": 4.5,
       "position": [
-        1340,
-        -100
+        1080,
+        0
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "XU9BVy1MqW6lCLNl",
-          "name": "Google Sheets account"
+          "name": "Google Sheets OAuth2"
         }
-      }
+      },
+      "notes": "Fixed: was hardcoded to 'Sheet1' (a bug). Bumped to typeVersion 4.5 columns.defineBelow shape to match workflows 01/02/03 (was 4.1 fieldsUi shape)."
     },
     {
       "parameters": {
@@ -198,8 +209,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1560,
-        -100
+        1300,
+        0
       ]
     }
   ],
@@ -208,25 +219,14 @@
       "main": [
         [
           {
-            "node": "Read Analyzed Leads",
+            "node": "Read Leads (analyzed)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Read Analyzed Leads": {
-      "main": [
-        [
-          {
-            "node": "Filter Analyzed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Filter Analyzed": {
+    "Read Leads (analyzed)": {
       "main": [
         [
           {
@@ -304,7 +304,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "fec20dc1-1234-5678-abcd-ef0123456789",
+  "versionId": "fec20dc1-1234-5678-abcd-ef0123456790",
   "id": "e44c2115-4ba9-43a9-b6bb-d08bcf159a68",
   "meta": {
     "templateCredsSetupCompleted": true
